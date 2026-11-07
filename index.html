@@ -230,6 +230,8 @@
     padding:10px 18px;border-radius:999px;font-size:13px;z-index:60;box-shadow:0 4px 14px rgba(0,0,0,.2);
   }
 
+  .backup-note{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;}
+  .backup-actions{display:flex;gap:8px;flex-wrap:wrap;}
   .app-footer{text-align:center;font-size:11px;color:var(--ink-soft);padding:16px;}
 
   @media(prefers-reduced-motion:reduce){
@@ -240,7 +242,7 @@
 <body>
   <header class="app-header">
     <div class="app-header__top">
-      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v3.4</span></h1>
+      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v3.5</span></h1>
       <div class="tabs" role="tablist">
         <button class="tab is-active" role="tab" aria-selected="true" data-tab="check" type="button">チェック</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="master" type="button">マスタ管理</button>
@@ -286,6 +288,15 @@
         <input type="search" id="masterSearch" class="search-row" placeholder="物品名・コードで検索" />
         <div id="itemTable" class="item-table"></div>
       </div>
+      <div class="master-block">
+        <h2>データの引き継ぎ・バックアップ</h2>
+        <p class="backup-note">設置場所・物品・写真・履歴をまとめて1つのファイルに保存できます。別の端末や別のURLへ移すときに使います。</p>
+        <div class="backup-actions">
+          <button type="button" id="exportBtn" class="btn btn--primary">データを書き出す</button>
+          <button type="button" id="importBtn" class="btn btn--ghost">データを読み込む</button>
+          <input type="file" id="importFile" accept=".json,application/json" hidden />
+        </div>
+      </div>
     </section>
 
     <section id="view-history" class="view" hidden>
@@ -307,7 +318,7 @@
 
   <div class="toast" id="toast" hidden aria-live="polite"></div>
 
-  <footer class="app-footer">物品チェック v3.4 ・ データは端末内(このブラウザ)に保存されます</footer>
+  <footer class="app-footer">物品チェック v3.5 ・ データは端末内(このブラウザ)に保存されます</footer>
 
 <script>
   var STORAGE_KEY = 'goodsCheck_v1';
@@ -1284,6 +1295,50 @@
       if(!scrollable) e.preventDefault();
     }
   }, {passive:false});
+
+  /* ---------- Backup / Restore ---------- */
+  document.getElementById('exportBtn').addEventListener('click', function(){
+    var blob = new Blob([JSON.stringify(state)], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'goods_check_backup_' + todayStr() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+    showToast('書き出しました(' + state.items.length + '品目)');
+  });
+  document.getElementById('importBtn').addEventListener('click', function(){
+    document.getElementById('importFile').click();
+  });
+  document.getElementById('importFile').addEventListener('change', function(e){
+    var input = e.target;
+    var file = input.files && input.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var data = JSON.parse(reader.result);
+        if(!data || !Array.isArray(data.items) || !Array.isArray(data.locations)) throw new Error('形式が違います');
+        var msg = '現在のデータを上書きして読み込みますか？\n設置場所 ' + data.locations.length + '件 / 物品 ' + data.items.length + '件 / 記録 ' + (Array.isArray(data.records) ? data.records.length : 0) + '件';
+        if(!confirm(msg)){ input.value = ''; return; }
+        state.locations = data.locations;
+        state.items = data.items;
+        state.records = Array.isArray(data.records) ? data.records : [];
+        state.staffHistory = Array.isArray(data.staffHistory) ? data.staffHistory : [];
+        saveState();
+        renderMaster();
+        renderCheck();
+        showToast('読み込みました');
+      }catch(err){
+        alert('読み込みに失敗しました。書き出したファイルを選んでください。');
+      }
+      input.value = '';
+    };
+    reader.onerror = function(){ alert('ファイルを読み込めませんでした。'); input.value = ''; };
+    reader.readAsText(file);
+  });
 
   /* ---------- Init ---------- */
   setTab('check');

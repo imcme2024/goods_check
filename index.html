@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="物品チェック" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="theme-color" content="#2C4A47" />
+<title>物品チェック</title>
+<style>
+  [hidden]{display:none !important;}
+  :root{
+    --bg:#F1F4F1;
+    --surface:#FFFFFF;
+    --surface-alt:#E8EEEA;
+    --ink:#1E2A27;
+    --ink-soft:#4F5D58;
+    --line:#D6E0DA;
+    --primary:#2C4A47;
+    --primary-soft:#3F615D;
+    --accent:#3E7D62;
+    --accent-soft:#E4F0E9;
+    --warn:#B98A1F;
+    --warn-soft:#FBF0DA;
+    --danger:#B3402A;
+    --danger-soft:#F8E4DE;
+    --radius:10px;
+    --radius-sm:6px;
+    --photo-h:260px;
+  }
+  @media(min-width:700px){:root{--photo-h:420px;}}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;overscroll-behavior-x:none;}
+  input,textarea,select{overscroll-behavior-x:none;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",-apple-system,BlinkMacSystemFont,"Segoe UI",Meiryo,sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:88px;
+  }
+  button,input,select,textarea{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--primary-soft);outline-offset:2px;}
+
+  /* Header */
+  .app-header{position:sticky;top:0;z-index:20;background:var(--primary);color:#fff;padding:14px 16px 10px;}
+  .app-header__top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .app-title{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:700;margin:0;letter-spacing:.01em;}
+  .app-title__mark{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:5px;background:rgba(255,255,255,.18);
+    font-size:13px;font-weight:700;flex-shrink:0;
+  }
+  .app-version{font-size:11px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.2);color:#fff;letter-spacing:0;}
+  .tabs{display:flex;gap:4px;background:rgba(255,255,255,.12);padding:3px;border-radius:999px;}
+  .tab{border:none;background:transparent;color:rgba(255,255,255,.75);padding:6px 14px;border-radius:999px;font-size:13px;cursor:pointer;}
+  .tab.is-active{background:#fff;color:var(--primary);font-weight:600;}
+  .app-header__meta{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;}
+  .field-inline{display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.85);}
+  .field-inline input{
+    border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.08);color:#fff;
+    border-radius:var(--radius-sm);padding:6px 8px;font-size:14px;
+  }
+  .field-inline input::placeholder{color:rgba(255,255,255,.55);}
+  .field-inline input[type=date]{color-scheme:dark;}
+
+  main{max-width:860px;margin:0 auto;padding:14px 12px 24px;}
+  .view[hidden]{display:none;}
+
+  .search-row{
+    display:block;width:100%;padding:9px 12px;margin-bottom:12px;
+    border:1px solid var(--line);border-radius:var(--radius-sm);
+    font-size:14px;background:var(--surface);
+  }
+
+  /* Check mode bar */
+  .check-mode-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap;}
+  .check-mode-bar__info{font-size:13px;color:var(--ink-soft);}
+  .check-mode-bar__info strong{color:var(--primary);font-weight:700;}
+
+  /* Stack mode */
+  .stack-area{position:relative;isolation:isolate;min-height:calc(var(--photo-h) + 310px);margin-bottom:8px;}
+  .stack-card{position:absolute;left:0;right:0;border-radius:var(--radius-sm);transition:top .42s cubic-bezier(.2,.8,.2,1),transform .42s cubic-bezier(.2,.8,.2,1),opacity .42s ease;}
+  .stack-card__inner{position:relative;background:var(--surface);border-left:4px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;}
+  .stack-card__inner.is-front{border-left-color:var(--accent);}
+  .stack-card__photo{width:100%;height:var(--photo-h);background:var(--surface-alt);}
+  .stack-card__photo img{width:100%;height:100%;object-fit:contain;display:block;}
+  .stack-card__body{padding:10px 12px 12px;}
+  .stack-card__name{font-size:18px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stack-card__spec{font-size:12.5px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stack-card__target{font-size:12px;color:var(--ink-soft);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stack-card__controls{display:flex;align-items:center;gap:8px;margin-top:10px;}
+  .stack-card__input{flex:1;height:48px;text-align:center;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:16px;font-variant-numeric:tabular-nums;}
+  .stack-card__ok{height:48px;padding:0 22px;border-radius:999px;border:none;background:var(--warn-soft);color:#7A5A12;font-size:13px;font-weight:700;flex-shrink:0;}
+  .stack-empty{text-align:center;padding:34px 16px;color:var(--ink-soft);}
+
+  /* Check list (list mode) */
+  .empty-state{text-align:center;padding:40px 16px;color:var(--ink-soft);}
+  .empty-state p{margin:0 0 12px;}
+
+  .location-section{margin-bottom:18px;}
+  .location-section__head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding:6px 2px;border-bottom:2px solid var(--primary);margin-bottom:6px;gap:8px;
+  }
+  .location-section__title{font-size:15px;font-weight:700;color:var(--primary);}
+  .location-section__progress{font-size:12px;color:var(--ink-soft);white-space:nowrap;}
+
+  .item-row{
+    display:flex;align-items:center;gap:10px;background:var(--surface);
+    border-left:4px solid var(--line);border-radius:var(--radius-sm);
+    padding:9px 10px;margin-bottom:6px;transition:border-color .15s ease;
+  }
+  .item-row.is-ok{border-left-color:var(--accent);}
+  .item-row.is-order{border-left-color:var(--danger);}
+  .item-row.is-check{border-left-color:var(--warn);}
+
+  .item-row__photo{width:36px;height:36px;border-radius:6px;background:var(--surface-alt);flex-shrink:0;overflow:hidden;}
+  .item-row__photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .item-row__main{flex:1;min-width:0;}
+  .item-row__name{font-size:14px;font-weight:600;color:var(--ink);}
+  .item-row__spec{font-size:12px;color:var(--ink-soft);margin-top:1px;}
+  .item-row__tags{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;}
+  .tag{font-size:10.5px;padding:2px 7px;border-radius:999px;background:var(--surface-alt);color:var(--ink-soft);}
+  .tag--spd{background:var(--warn-soft);color:#7A5A12;}
+  .tag--note{background:var(--accent-soft);color:#245943;}
+  .tag--clear{border:none;cursor:pointer;}
+
+  .item-row__std{width:76px;flex-shrink:0;font-size:12px;color:var(--ink-soft);text-align:right;}
+  .item-row__input{width:64px;flex-shrink:0;}
+  .item-row__input input{
+    width:100%;padding:7px 6px;text-align:right;border:1px solid var(--line);
+    border-radius:var(--radius-sm);font-size:15px;font-variant-numeric:tabular-nums;
+  }
+  .item-row__status-wrap{width:70px;flex-shrink:0;text-align:right;}
+  .item-row__status{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;}
+  .item-row__status.is-order{background:var(--danger-soft);color:#7A2A1C;}
+  .item-row__status.is-check{background:var(--warn-soft);color:#7A5A12;}
+  .item-row__status.is-ok{background:var(--accent-soft);color:#245943;}
+
+  @media(max-width:480px){
+    .item-row{flex-wrap:wrap;}
+    .item-row__main{width:100%;flex:none;margin-bottom:8px;}
+    .item-row__std{width:auto;text-align:left;}
+    .item-row__status-wrap{width:auto;text-align:left;margin-left:auto;}
+  }
+
+  /* Sticky action bar */
+  .sticky-bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);
+    border-top:1px solid var(--line);padding:10px 14px;display:flex;
+    align-items:center;justify-content:space-between;gap:10px;box-shadow:0 -2px 10px rgba(0,0,0,.05);
+  }
+  .progress-text{font-size:12px;color:var(--ink-soft);}
+  .sticky-bar__actions{display:flex;gap:8px;}
+  .btn{border:none;border-radius:var(--radius-sm);padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;}
+  .btn--ghost{background:var(--surface-alt);color:var(--primary);}
+  .btn--accent{background:var(--accent);color:#fff;}
+  .btn--primary{background:var(--primary);color:#fff;}
+  .btn--danger{background:var(--danger);color:#fff;}
+
+  /* Master */
+  .master-block{margin-bottom:26px;}
+  .master-block h2{font-size:15px;margin:0 0 10px;color:var(--primary);}
+  .master-block__head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;}
+  .location-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .location-chip{
+    display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);
+    border-radius:999px;padding:5px 6px 5px 12px;font-size:13px;
+  }
+  .location-chip button{
+    border:none;background:var(--surface-alt);color:var(--ink-soft);width:20px;height:20px;
+    border-radius:50%;cursor:pointer;font-size:12px;line-height:1;
+  }
+  .inline-form{display:flex;gap:8px;}
+  .inline-form input{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:14px;}
+  .inline-form button{padding:8px 14px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;font-weight:600;cursor:pointer;}
+
+  .item-table{display:flex;flex-direction:column;gap:6px;}
+  .item-table-row{
+    display:flex;align-items:center;gap:10px;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;
+  }
+  .item-table-row__photo{width:40px;height:40px;border-radius:6px;background:var(--surface-alt);flex-shrink:0;overflow:hidden;}
+  .item-table-row__photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .item-table-row__main{flex:1;min-width:0;}
+  .item-table-row__name{font-size:14px;font-weight:600;}
+  .item-table-row__sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .item-table-row__actions{display:flex;gap:6px;flex-shrink:0;}
+  .icon-btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-sm);padding:5px 9px;font-size:12px;cursor:pointer;color:var(--ink);}
+
+  .photo-field{display:flex;align-items:center;gap:10px;}
+  .photo-preview{width:56px;height:56px;border-radius:8px;background:var(--surface-alt);flex-shrink:0;overflow:hidden;}
+  .photo-preview img{width:100%;height:100%;object-fit:cover;display:block;}
+  .photo-field__controls{display:flex;flex-direction:column;gap:6px;}
+  .photo-field__controls input[type=file]{font-size:12px;}
+
+  /* History */
+  .history-row{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;
+  }
+  .history-row__date{font-weight:700;font-size:14px;}
+  .history-row__meta{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(20,30,28,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50;transition:opacity .15s ease;}
+  .modal-overlay[hidden]{display:none;}
+  @media(min-width:640px){.modal-overlay{align-items:center;}}
+  .modal{background:#fff;border-radius:14px 14px 0 0;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;padding:20px;}
+  @media(min-width:640px){.modal{border-radius:14px;}}
+  .modal h3{margin:0 0 14px;font-size:16px;color:var(--primary);}
+  .form-row{margin-bottom:12px;}
+  .form-row label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;}
+  .form-row input[type=text],.form-row input[type=number],.form-row select{
+    width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:14px;
+  }
+  .radio-group{display:flex;gap:16px;}
+  .radio-group label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap;}
+
+  .order-text{white-space:pre-wrap;font-size:13px;line-height:1.7;background:var(--surface-alt);border-radius:var(--radius-sm);padding:12px;max-height:40vh;overflow-y:auto;}
+
+  .toast{
+    position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--primary);color:#fff;
+    padding:10px 18px;border-radius:999px;font-size:13px;z-index:60;box-shadow:0 4px 14px rgba(0,0,0,.2);
+  }
+
+  .app-footer{text-align:center;font-size:11px;color:var(--ink-soft);padding:16px;}
+
+  @media(prefers-reduced-motion:reduce){
+    .item-row,.modal-overlay,.stack-card{transition:none;}
+  }
+</style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header__top">
+      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v3.4</span></h1>
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" role="tab" aria-selected="true" data-tab="check" type="button">チェック</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="master" type="button">マスタ管理</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="history" type="button">履歴</button>
+      </div>
+    </div>
+    <div class="app-header__meta" id="checkMetaBar">
+      <label class="field-inline"><span>実施日</span><input type="date" id="checkDate" /></label>
+      <label class="field-inline"><span>担当者</span><input type="text" id="checkStaff" list="staffList" placeholder="氏名" /></label>
+      <datalist id="staffList"></datalist>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-check" class="view">
+      <div class="check-mode-bar">
+        <span id="stackInfo" class="check-mode-bar__info"></span>
+        <button type="button" id="modeToggleBtn" class="btn btn--ghost">一覧で見る</button>
+      </div>
+      <div id="stackModeWrap">
+        <div id="stackArea" class="stack-area"></div>
+      </div>
+      <div id="listModeWrap" hidden>
+        <input type="search" id="checkSearch" class="search-row" placeholder="物品名・コードで絞り込み" />
+        <div id="checkList" class="check-list"></div>
+      </div>
+    </section>
+
+    <section id="view-master" class="view" hidden>
+      <div class="master-block">
+        <h2>設置場所</h2>
+        <div id="locationList" class="location-list"></div>
+        <form id="locationForm" class="inline-form">
+          <input type="text" id="newLocationName" placeholder="新しい設置場所名" required />
+          <button type="submit">追加</button>
+        </form>
+      </div>
+      <div class="master-block">
+        <div class="master-block__head">
+          <h2>物品一覧</h2>
+          <button type="button" id="addItemBtn" class="btn btn--primary">物品を追加</button>
+        </div>
+        <input type="search" id="masterSearch" class="search-row" placeholder="物品名・コードで検索" />
+        <div id="itemTable" class="item-table"></div>
+      </div>
+    </section>
+
+    <section id="view-history" class="view" hidden>
+      <div id="historyList" class="history-list"></div>
+    </section>
+  </main>
+
+  <div class="sticky-bar" id="checkStickyBar">
+    <span id="checkProgress" class="progress-text"></span>
+    <div class="sticky-bar__actions">
+      <button type="button" id="showOrderListBtn" class="btn btn--ghost">発注リストを見る</button>
+      <button type="button" id="recordBtn" class="btn btn--accent">記録する</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <div class="toast" id="toast" hidden aria-live="polite"></div>
+
+  <footer class="app-footer">物品チェック v3.4 ・ データは端末内(このブラウザ)に保存されます</footer>
+
+<script>
+  var STORAGE_KEY = 'goodsCheck_v1';
+  var STACK_RANKS = [
+    {top:0, scale:1, opacity:1, z:40},
+    {top:56, scale:0.94, opacity:0.55, z:30},
+    {top:100, scale:0.88, opacity:0.28, z:20},
+    {top:136, scale:0.82, opacity:0, z:10}
+  ];
+
+  function uid(){
+    return 'id_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+  }
+  function todayStr(){
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth()+1).padStart(2,'0');
+    var day = String(d.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + day;
+  }
+  function escapeHtml(str){
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function(s){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[s];
+    });
+  }
+  function statusClass(state){
+    if(state === 'order') return 'is-order';
+    if(state === 'check') return 'is-check';
+    if(state === 'ok' || state === 'sufficient') return 'is-ok';
+    return '';
+  }
+  function compressImage(file, maxDim, quality, cb){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        var w = img.width, h = img.height;
+        if(w > h){ if(w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; } }
+        else { if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; } }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        try{ cb(canvas.toDataURL('image/jpeg', quality)); }catch(err){ cb(null); }
+      };
+      img.onerror = function(){ cb(null); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function(){ cb(null); };
+    reader.readAsDataURL(file);
+  }
+
+  function defaultState(){
+    return {
+      meta:{version:'3.4'},
+      locations:[],
+      items:[],
+      records:[],
+      staffHistory:[],
+      draft:{date:todayStr(), staff:'', entries:{}, checkMode:'stack'}
+    };
+  }
+
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return defaultState();
+      var parsed = JSON.parse(raw);
+      var draft = (parsed.draft && typeof parsed.draft === 'object') ? parsed.draft : {date:todayStr(), staff:'', entries:{}, checkMode:'stack'};
+      if(!draft.checkMode) draft.checkMode = 'stack';
+      if(!draft.entries || typeof draft.entries !== 'object') draft.entries = {};
+      return Object.assign(defaultState(), parsed, {
+        locations: Array.isArray(parsed.locations) ? parsed.locations : [],
+        items: Array.isArray(parsed.items) ? parsed.items : [],
+        records: Array.isArray(parsed.records) ? parsed.records : [],
+        staffHistory: Array.isArray(parsed.staffHistory) ? parsed.staffHistory : [],
+        draft: draft
+      });
+    }catch(e){
+      console.error('state load failed', e);
+      return defaultState();
+    }
+  }
+
+  var state = loadState();
+  var currentTab = 'check';
+  var toastTimer = null;
+  var stackNodes = {};
+  var currentStackLocationId = null;
+  var currentStackQueueIds = [];
+  var dayResetHappened = false;
+
+  (function checkDayReset(){
+    var today = todayStr();
+    if(state.draft.date && state.draft.date !== today){
+      var hadData = Object.keys(state.draft.entries || {}).length > 0 || (state.draft.staff || '').trim() !== '';
+      state.draft = { date: today, staff:'', entries:{}, checkMode: state.draft.checkMode || 'stack' };
+      dayResetHappened = hadData;
+    }
+  })();
+
+  window.addEventListener('error', function(e){
+    var banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#B3402A;color:#fff;padding:8px 12px;font-size:12px;z-index:999;';
+    banner.textContent = 'エラーが発生しました: ' + e.message;
+    document.body.appendChild(banner);
+  });
+
+  function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){
+      console.error('save failed', e);
+      alert('保存に失敗しました。ブラウザのストレージ容量を確認してください。');
+    }
+  }
+
+  if(dayResetHappened) saveState();
+
+  function getLocationName(locId){
+    if(locId === '__none__') return '未分類';
+    var loc = state.locations.find(function(l){ return l.id === locId; });
+    return loc ? loc.name : '未分類';
+  }
+
+  function getLastRecordedValue(itemId){
+    if(state.records.length === 0) return undefined;
+    return state.records[0].entries[itemId];
+  }
+  function placeholderFor(item){
+    var v = getLastRecordedValue(item.id);
+    if(v === undefined) return '実数';
+    if(v === 'SUFFICIENT') return '前回:十分';
+    return '前回:' + v + (item.unit || '');
+  }
+
+  function itemStatus(item, qtyRaw){
+    if(qtyRaw === '' || qtyRaw === undefined || qtyRaw === null) return {state:'empty'};
+    if(qtyRaw === 'SUFFICIENT') return {state:'sufficient', label:'十分'};
+    var qty = Number(qtyRaw);
+    if(Number.isNaN(qty)) return {state:'empty'};
+    if(item.category === 'spd'){
+      var threshold = Number(item.spdCheckQty) || 0;
+      if(qty < threshold) return {state:'check', label:'要確認'};
+      return {state:'ok', label:'✓'};
+    } else {
+      var std = Number(item.standardQty) || 0;
+      var orderQty = Math.max(std - qty, 0);
+      if(orderQty > 0) return {state:'order', label:'発注 ' + orderQty, orderQty:orderQty};
+      return {state:'ok', label:'✓'};
+    }
+  }
+
+  /* ---------- Tabs ---------- */
+  function setTab(tab){
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(function(btn){
+      var active = btn.dataset.tab === tab;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.getElementById('view-check').hidden = tab !== 'check';
+    document.getElementById('view-master').hidden = tab !== 'master';
+    document.getElementById('view-history').hidden = tab !== 'history';
+    document.getElementById('checkMetaBar').style.display = tab === 'check' ? 'flex' : 'none';
+    document.getElementById('checkStickyBar').style.display = tab === 'check' ? 'flex' : 'none';
+    if(tab === 'check') renderCheck();
+    if(tab === 'master') renderMaster();
+    if(tab === 'history') renderHistory();
+  }
+  document.querySelectorAll('.tab').forEach(function(btn){
+    btn.addEventListener('click', function(){ setTab(btn.dataset.tab); });
+  });
+
+  /* ---------- Check tab dispatcher ---------- */
+  function renderCheck(){
+    document.getElementById('checkDate').value = state.draft.date || todayStr();
+    document.getElementById('checkStaff').value = state.draft.staff || '';
+    renderStaffList();
+    var mode = state.draft.checkMode || 'stack';
+    document.getElementById('stackModeWrap').hidden = mode !== 'stack';
+    document.getElementById('listModeWrap').hidden = mode !== 'list';
+    document.getElementById('modeToggleBtn').textContent = mode === 'stack' ? '一覧で見る' : 'スタックで確認';
+    if(mode === 'stack'){
+      renderCheckStack();
+    } else {
+      renderCheckListMode();
+    }
+    updateProgress();
+  }
+
+  document.getElementById('modeToggleBtn').addEventListener('click', function(){
+    state.draft.checkMode = (state.draft.checkMode === 'list') ? 'stack' : 'list';
+    saveState();
+    renderCheck();
+  });
+
+  function renderStaffList(){
+    var dl = document.getElementById('staffList');
+    dl.innerHTML = state.staffHistory.map(function(s){ return '<option value="' + escapeHtml(s) + '"></option>'; }).join('');
+  }
+
+  function updateProgress(){
+    var total = state.items.length;
+    var filled = state.items.filter(function(it){
+      var v = state.draft.entries[it.id];
+      return v !== undefined && v !== '';
+    }).length;
+    document.getElementById('checkProgress').textContent = total ? ('入力済み ' + filled + '/' + total) : '';
+  }
+
+  /* ---------- Stack mode ---------- */
+  function getActiveLocationQueue(){
+    var groups = state.locations.map(function(l){ return {id:l.id, name:l.name}; });
+    groups.push({id:'__none__', name:'未分類'});
+    for(var i=0;i<groups.length;i++){
+      var g = groups[i];
+      var items = state.items.filter(function(it){ return (it.locationId || '__none__') === g.id; })
+        .filter(function(it){
+          var v = state.draft.entries[it.id];
+          return v === undefined || v === '';
+        });
+      if(items.length > 0){
+        return {locationId:g.id, locationName:g.name, queueItems:items};
+      }
+    }
+    return null;
+  }
+
+  function buildStackNode(item){
+    var outer = document.createElement('div');
+    outer.className = 'stack-card';
+    var targetHtml;
+    if(item.category === 'spd'){
+      targetHtml = '確認用 ' + (item.spdCheckQty||0) + escapeHtml(item.unit||'') + ' ／SPD定数 ' + (item.spdSystemQty||0) + escapeHtml(item.unit||'');
+    } else {
+      targetHtml = '定数 ' + (item.standardQty||0) + escapeHtml(item.unit||'');
+    }
+    if(item.category === 'spd') targetHtml = '<span class="tag tag--spd" style="margin-right:4px;">SPD管理</span>' + targetHtml;
+    if(item.note) targetHtml += ' <span class="tag tag--note">' + escapeHtml(item.note) + '</span>';
+    var photoHtml = item.photo ? '<img src="' + item.photo + '" alt="">' : '';
+    outer.innerHTML =
+      '<div class="stack-card__inner">' +
+        '<div class="stack-card__photo">' + photoHtml + '</div>' +
+        '<div class="stack-card__body">' +
+          '<div class="stack-card__name">' + escapeHtml(item.name) + '</div>' +
+          (item.spec ? '<div class="stack-card__spec">' + escapeHtml(item.spec) + '</div>' : '') +
+          '<div class="stack-card__target">' + targetHtml + '</div>' +
+          '<div class="stack-card__controls">' +
+            '<input type="text" inputmode="numeric" placeholder="' + escapeHtml(placeholderFor(item)) + '" class="stack-card__input" />' +
+            '<button type="button" class="stack-card__ok">十分</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    var input = outer.querySelector('.stack-card__input');
+    var okBtn = outer.querySelector('.stack-card__ok');
+    okBtn.addEventListener('click', function(){
+      if(outer.dataset.front === '1') completeStackItem(item.id, 'SUFFICIENT');
+    });
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' && input.value !== '' && outer.dataset.front === '1') completeStackItem(item.id, input.value);
+    });
+    input.addEventListener('blur', function(){
+      if(input.value !== '' && outer.dataset.front === '1') completeStackItem(item.id, input.value);
+    });
+    return outer;
+  }
+
+  function layoutStack(queue){
+    queue.forEach(function(id, idx){
+      var node = stackNodes[id];
+      if(!node) return;
+      var s = STACK_RANKS[idx] || STACK_RANKS[STACK_RANKS.length - 1];
+      node.style.top = s.top + 'px';
+      node.style.transform = 'scale(' + s.scale + ')';
+      node.style.opacity = s.opacity;
+      node.style.zIndex = s.z;
+      var inner = node.querySelector('.stack-card__inner');
+      inner.classList.toggle('is-front', idx === 0);
+      node.dataset.front = idx === 0 ? '1' : '0';
+      var input = node.querySelector('.stack-card__input');
+      var okBtn = node.querySelector('.stack-card__ok');
+      input.style.pointerEvents = idx === 0 ? 'auto' : 'none';
+      okBtn.style.pointerEvents = idx === 0 ? 'auto' : 'none';
+      input.style.opacity = idx === 0 ? '1' : '0';
+      okBtn.style.opacity = idx === 0 ? '1' : '0';
+    });
+  }
+
+  function updateStackInfoForCurrentLocation(){
+    var infoEl = document.getElementById('stackInfo');
+    if(!currentStackLocationId){ infoEl.textContent = ''; return; }
+    var totalInLoc = state.items.filter(function(it){ return (it.locationId || '__none__') === currentStackLocationId; }).length;
+    var remaining = currentStackQueueIds.length;
+    infoEl.innerHTML = '<strong>' + escapeHtml(getLocationName(currentStackLocationId)) + '</strong> ／ 残り ' + remaining + '/' + totalInLoc;
+  }
+
+  function renderCheckStack(){
+    var area = document.getElementById('stackArea');
+    area.innerHTML = '';
+    stackNodes = {};
+    currentStackQueueIds = [];
+    currentStackLocationId = null;
+
+    if(state.items.length === 0){
+      area.innerHTML = '<div class="stack-empty">まだ物品が登録されていません。「マスタ管理」から登録してください。</div>';
+      document.getElementById('stackInfo').textContent = '';
+      return;
+    }
+    var active = getActiveLocationQueue();
+    if(!active){
+      area.innerHTML = '<div class="stack-empty">すべての物品を確認しました。「発注リストを見る」または「記録する」に進んでください。</div>';
+      document.getElementById('stackInfo').textContent = '';
+      return;
+    }
+    currentStackLocationId = active.locationId;
+    currentStackQueueIds = active.queueItems.map(function(it){ return it.id; });
+    active.queueItems.forEach(function(item){
+      var node = buildStackNode(item);
+      area.appendChild(node);
+      stackNodes[item.id] = node;
+    });
+    layoutStack(currentStackQueueIds);
+    updateStackInfoForCurrentLocation();
+  }
+
+  function completeStackItem(itemId, value){
+    state.draft.entries[itemId] = value;
+    saveState();
+
+    var node = stackNodes[itemId];
+    if(node){
+      node.style.top = (parseFloat(node.style.top || '0') - 220) + 'px';
+      node.style.opacity = '0';
+    }
+    currentStackQueueIds = currentStackQueueIds.filter(function(id){ return id !== itemId; });
+    layoutStack(currentStackQueueIds);
+    updateStackInfoForCurrentLocation();
+    updateProgress();
+
+    setTimeout(function(){
+      if(node && node.parentNode) node.parentNode.removeChild(node);
+      delete stackNodes[itemId];
+      if(currentStackQueueIds.length === 0){
+        renderCheckStack();
+        updateProgress();
+      }
+    }, 440);
+  }
+
+  /* ---------- List mode ---------- */
+  function renderItemRow(item){
+    var qtyRaw = state.draft.entries[item.id];
+    var status = itemStatus(item, qtyRaw);
+    var rowClass = statusClass(status.state);
+    var stdLabel = item.category === 'spd' ? '確認用' : '定数';
+    var stdValue = item.category === 'spd' ? (item.spdCheckQty || 0) : (item.standardQty || 0);
+    var tags = [];
+    if(item.category === 'spd') tags.push('<span class="tag tag--spd">SPD管理</span>');
+    if(item.category === 'spd') tags.push('<span class="tag">SPD定数 ' + (item.spdSystemQty||0) + '</span>');
+    if(item.shelf) tags.push('<span class="tag">棚 ' + escapeHtml(item.shelf) + '</span>');
+    if(item.note) tags.push('<span class="tag tag--note">' + escapeHtml(item.note) + '</span>');
+    var statusHtml = '';
+    if(status.state !== 'empty'){
+      statusHtml = '<span class="item-row__status ' + statusClass(status.state) + '">' + status.label + '</span>';
+    }
+    var photoHtml = item.photo ? '<img src="' + item.photo + '" alt="">' : '';
+    var inputArea;
+    if(qtyRaw === 'SUFFICIENT'){
+      inputArea = '<button type="button" class="tag tag--note tag--clear" data-action="clear-entry" data-id="' + item.id + '">十分(取消)</button>';
+    } else {
+      inputArea = '<input type="text" inputmode="numeric" placeholder="' + escapeHtml(placeholderFor(item)) + '" value="' + (qtyRaw !== undefined ? escapeHtml(qtyRaw) : '') + '" data-entry-input="' + item.id + '" />';
+    }
+    return '' +
+      '<div class="item-row ' + rowClass + '" data-item-id="' + item.id + '">' +
+        '<div class="item-row__photo">' + photoHtml + '</div>' +
+        '<div class="item-row__main">' +
+          '<div class="item-row__name">' + escapeHtml(item.name) + '</div>' +
+          (item.spec ? '<div class="item-row__spec">' + escapeHtml(item.spec) + '</div>' : '') +
+          (tags.length ? '<div class="item-row__tags">' + tags.join('') + '</div>' : '') +
+        '</div>' +
+        '<div class="item-row__std">' + stdLabel + '<br>' + stdValue + escapeHtml(item.unit || '') + '</div>' +
+        '<div class="item-row__input">' + inputArea + '</div>' +
+        '<div class="item-row__status-wrap">' + statusHtml + '</div>' +
+      '</div>';
+  }
+
+  function renderCheckListMode(){
+    var listEl = document.getElementById('checkList');
+    var search = (document.getElementById('checkSearch').value || '').trim().toLowerCase();
+
+    if(state.items.length === 0){
+      listEl.innerHTML = '<div class="empty-state"><p>まだ物品が登録されていません。</p><button type="button" class="btn btn--primary" data-action="goto-master">マスタ管理で登録する</button></div>';
+      return;
+    }
+
+    var itemsByLoc = {};
+    state.items.forEach(function(it){
+      var key = it.locationId || '__none__';
+      if(!itemsByLoc[key]) itemsByLoc[key] = [];
+      itemsByLoc[key].push(it);
+    });
+
+    function renderLocBlock(locId, locName){
+      var items = itemsByLoc[locId] || [];
+      if(search){
+        items = items.filter(function(it){
+          return (it.name || '').toLowerCase().indexOf(search) !== -1 ||
+                 (it.code || '').toLowerCase().indexOf(search) !== -1 ||
+                 (it.spec || '').toLowerCase().indexOf(search) !== -1;
+        });
+      }
+      if(items.length === 0) return '';
+      var filledCount = items.filter(function(it){
+        var v = state.draft.entries[it.id];
+        return v !== undefined && v !== '';
+      }).length;
+      var rows = items.map(renderItemRow).join('');
+      return '<div class="location-section">' +
+        '<div class="location-section__head"><span class="location-section__title">' + escapeHtml(locName) + '</span>' +
+        '<span class="location-section__progress">' + filledCount + '/' + items.length + ' 入力済み</span></div>' +
+        rows + '</div>';
+    }
+
+    var html = '';
+    state.locations.forEach(function(loc){ html += renderLocBlock(loc.id, loc.name); });
+    html += renderLocBlock('__none__', '未分類');
+
+    listEl.innerHTML = html || '<div class="empty-state"><p>該当する物品がありません。</p></div>';
+  }
+
+  function refreshItemRow(itemId){
+    var item = state.items.find(function(it){ return it.id === itemId; });
+    if(!item) return;
+    var row = document.querySelector('.item-row[data-item-id="' + itemId + '"]');
+    if(!row) return;
+    var qtyRaw = state.draft.entries[itemId];
+    var status = itemStatus(item, qtyRaw);
+    row.classList.remove('is-ok','is-order','is-check');
+    var cls = statusClass(status.state);
+    if(cls) row.classList.add(cls);
+    var statusWrap = row.querySelector('.item-row__status-wrap');
+    statusWrap.innerHTML = status.state === 'empty' ? '' : '<span class="item-row__status ' + cls + '">' + status.label + '</span>';
+    var section = row.closest('.location-section');
+    if(section){
+      var rows = section.querySelectorAll('.item-row');
+      var filled = 0;
+      rows.forEach(function(r){
+        var id = r.dataset.itemId;
+        var v = state.draft.entries[id];
+        if(v !== undefined && v !== '') filled++;
+      });
+      var progEl = section.querySelector('.location-section__progress');
+      if(progEl) progEl.textContent = filled + '/' + rows.length + ' 入力済み';
+    }
+  }
+
+  document.getElementById('checkList').addEventListener('input', function(e){
+    var input = e.target.closest('[data-entry-input]');
+    if(!input) return;
+    var id = input.dataset.entryInput;
+    var val = input.value;
+    if(val === ''){ delete state.draft.entries[id]; }
+    else { state.draft.entries[id] = val; }
+    saveState();
+    refreshItemRow(id);
+    updateProgress();
+  });
+
+  document.getElementById('checkSearch').addEventListener('input', function(){ renderCheckListMode(); });
+
+  document.getElementById('checkDate').addEventListener('input', function(e){
+    state.draft.date = e.target.value;
+    saveState();
+  });
+  document.getElementById('checkStaff').addEventListener('input', function(e){
+    state.draft.staff = e.target.value;
+    saveState();
+  });
+
+  /* ---------- Order list ---------- */
+  function buildOrderText(entries, dateLabel){
+    var byLoc = {};
+    var checkNeeded = [];
+    state.items.forEach(function(item){
+      var qty = entries[item.id];
+      if(qty === undefined) return;
+      var status = itemStatus(item, String(qty));
+      var locName = getLocationName(item.locationId || '__none__');
+      if(item.category === 'spd'){
+        if(status.state === 'check'){
+          checkNeeded.push(locName + ' / ' + item.name + (item.spec ? '(' + item.spec + ')' : '') + '  実数' + qty + ' < 確認用' + item.spdCheckQty + '(SPD定数' + (item.spdSystemQty||0) + ')');
+        }
+      } else if(status.state === 'order'){
+        if(!byLoc[locName]) byLoc[locName] = [];
+        byLoc[locName].push(item.name + (item.spec ? '(' + item.spec + ')' : '') + '  発注 ' + status.orderQty + (item.unit || ''));
+      }
+    });
+    var text = '【発注リスト】' + dateLabel + '\n';
+    var locNames = Object.keys(byLoc);
+    if(locNames.length === 0){
+      text += '不足はありません。\n';
+    } else {
+      locNames.forEach(function(loc){
+        text += '\n' + loc + '\n';
+        byLoc[loc].forEach(function(line){ text += '　' + line + '\n'; });
+      });
+    }
+    if(checkNeeded.length){
+      text += '\n【要確認(SPD管理品)】\n';
+      checkNeeded.forEach(function(line){ text += '　' + line + '\n'; });
+    }
+    return text;
+  }
+
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){
+        showToast('コピーしました');
+      }).catch(function(){ fallbackCopyPrompt(text); });
+    } else {
+      fallbackCopyPrompt(text);
+    }
+  }
+  function fallbackCopyPrompt(text){
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try{
+      document.execCommand('copy');
+      showToast('コピーしました');
+    }catch(e){
+      alert('コピーに失敗しました。テキストを選択して手動でコピーしてください。');
+    }
+    document.body.removeChild(ta);
+  }
+
+  document.getElementById('showOrderListBtn').addEventListener('click', function(){
+    var entries = {};
+    Object.keys(state.draft.entries).forEach(function(id){
+      var v = state.draft.entries[id];
+      if(v !== '' && v !== undefined) entries[id] = (v === 'SUFFICIENT') ? 'SUFFICIENT' : Number(v);
+    });
+    var text = buildOrderText(entries, state.draft.date || todayStr());
+    openModal(
+      '<h3>発注リスト</h3>' +
+      '<div class="order-text">' + escapeHtml(text) + '</div>' +
+      '<div class="modal-actions">' +
+        '<button type="button" class="btn btn--ghost" data-action="close-modal">閉じる</button>' +
+        '<button type="button" class="btn btn--accent" id="copyOrderBtn">コピー</button>' +
+      '</div>'
+    );
+    document.getElementById('copyOrderBtn').addEventListener('click', function(){ copyText(text); });
+  });
+
+  /* ---------- Record ---------- */
+  document.getElementById('recordBtn').addEventListener('click', function(){
+    if(state.items.length === 0){
+      alert('物品が登録されていません。先にマスタ管理で登録してください。');
+      return;
+    }
+    var staff = (state.draft.staff || '').trim();
+    if(!staff){
+      alert('担当者を入力してください。');
+      document.getElementById('checkStaff').focus();
+      return;
+    }
+    var date = state.draft.date || todayStr();
+    var total = state.items.length;
+    var filledIds = Object.keys(state.draft.entries).filter(function(id){ return state.draft.entries[id] !== ''; });
+    if(filledIds.length < total){
+      var ok = confirm('入力済み ' + filledIds.length + '/' + total + '件です。未入力の物品を残したまま記録しますか？');
+      if(!ok) return;
+    }
+    var entries = {};
+    filledIds.forEach(function(id){
+      var v = state.draft.entries[id];
+      entries[id] = (v === 'SUFFICIENT') ? 'SUFFICIENT' : Number(v);
+    });
+    var record = { id: uid(), date: date, staff: staff, entries: entries, createdAt: new Date().toISOString() };
+    state.records.unshift(record);
+    if(state.staffHistory.indexOf(staff) === -1) state.staffHistory.push(staff);
+    state.draft = { date: todayStr(), staff:'', entries:{}, checkMode: state.draft.checkMode || 'stack' };
+    saveState();
+    renderCheck();
+    showToast('記録しました(' + date + ' 担当:' + staff + ')');
+  });
+
+  /* ---------- Master: locations ---------- */
+  function renderLocationList(){
+    var el = document.getElementById('locationList');
+    if(state.locations.length === 0){
+      el.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">まだ設置場所がありません。下記から追加してください。</p>';
+      return;
+    }
+    el.innerHTML = state.locations.map(function(loc){
+      return '<span class="location-chip">' + escapeHtml(loc.name) +
+        '<button type="button" data-action="delete-location" data-id="' + loc.id + '" title="削除">×</button></span>';
+    }).join('');
+  }
+  document.getElementById('locationForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var input = document.getElementById('newLocationName');
+    var name = input.value.trim();
+    if(!name) return;
+    state.locations.push({ id: uid(), name: name });
+    input.value = '';
+    saveState();
+    renderMaster();
+    renderCheck();
+  });
+
+  /* ---------- Master: items ---------- */
+  function renderItemTable(){
+    var el = document.getElementById('itemTable');
+    var search = (document.getElementById('masterSearch').value || '').trim().toLowerCase();
+    var items = state.items.slice();
+    if(search){
+      items = items.filter(function(it){
+        return (it.name || '').toLowerCase().indexOf(search) !== -1 ||
+               (it.code || '').toLowerCase().indexOf(search) !== -1 ||
+               (it.spec || '').toLowerCase().indexOf(search) !== -1;
+      });
+    }
+    if(items.length === 0){
+      el.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">該当する物品がありません。</p>';
+      return;
+    }
+    el.innerHTML = items.map(function(it, idx){
+      var locName = getLocationName(it.locationId || '__none__');
+      var upDis = idx === 0 ? ' disabled style="opacity:.35;"' : '';
+      var downDis = idx === items.length - 1 ? ' disabled style="opacity:.35;"' : '';
+      var qtyLabel = it.category === 'spd'
+        ? ('確認用定数 ' + (it.spdCheckQty || 0) + ' ／SPD定数 ' + (it.spdSystemQty || 0))
+        : ('定数 ' + (it.standardQty || 0));
+      var photoHtml = it.photo ? '<img src="' + it.photo + '" alt="">' : '';
+      return '<div class="item-table-row">' +
+        '<div class="item-table-row__photo">' + photoHtml + '</div>' +
+        '<div class="item-table-row__main">' +
+          '<div class="item-table-row__name">' + escapeHtml(it.name) + (it.category === 'spd' ? ' <span class="tag tag--spd">SPD管理</span>' : '') + '</div>' +
+          '<div class="item-table-row__sub">' + escapeHtml(locName) +
+            (it.shelf ? ' ／ 棚' + escapeHtml(it.shelf) : '') +
+            (it.code ? ' ／ ' + escapeHtml(it.code) : '') +
+            ' ／ ' + qtyLabel + escapeHtml(it.unit || '') + '</div>' +
+        '</div>' +
+        '<div class="item-table-row__actions">' +
+          '<button type="button" class="icon-btn" data-action="move-up" data-id="' + it.id + '" aria-label="上へ"' + upDis + '>▲</button>' +
+          '<button type="button" class="icon-btn" data-action="move-down" data-id="' + it.id + '" aria-label="下へ"' + downDis + '>▼</button>' +
+          '<button type="button" class="icon-btn" data-action="edit-item" data-id="' + it.id + '">編集</button>' +
+          '<button type="button" class="icon-btn" data-action="delete-item" data-id="' + it.id + '">削除</button>' +
+        '</div></div>';
+    }).join('');
+  }
+  document.getElementById('masterSearch').addEventListener('input', renderItemTable);
+  document.getElementById('addItemBtn').addEventListener('click', function(){ openItemForm(); });
+
+  function openItemForm(itemId){
+    var editing = !!itemId;
+    if(state.locations.length === 0){
+      alert('先に設置場所を登録してください。');
+      return;
+    }
+    var defaultLoc = state.locations.find(function(l){ return (l.name || '').indexOf('第一') === 0; }) || state.locations[0];
+    var item = editing ? state.items.find(function(it){ return it.id === itemId; }) : {
+      id:null, locationId: defaultLoc.id, shelf:'', code:'', name:'', spec:'',
+      unit:'個', category:'normal', standardQty:0, spdSystemQty:0, spdCheckQty:0, note:'', photo:''
+    };
+    var pendingPhoto = item.photo || null;
+    var locOptions = state.locations.map(function(l){
+      return '<option value="' + l.id + '"' + (l.id === item.locationId ? ' selected' : '') + '>' + escapeHtml(l.name) + '</option>';
+    }).join('');
+    var isSpd = item.category === 'spd';
+
+    openModal(
+      '<h3>' + (editing ? '物品を編集' : '物品を追加') + '</h3>' +
+      '<form id="itemForm">' +
+        '<div class="form-row"><label>写真</label><div class="photo-field">' +
+          '<div class="photo-preview" id="photoPreview">' + (item.photo ? '<img src="' + item.photo + '" alt="">' : '') + '</div>' +
+          '<div class="photo-field__controls">' +
+            '<input type="file" accept="image/*" id="photoInput" />' +
+            '<button type="button" class="icon-btn" id="removePhotoBtn" style="' + (item.photo ? '' : 'display:none;') + '">写真を削除</button>' +
+          '</div>' +
+        '</div></div>' +
+        '<div class="form-row"><label>設置場所</label><select name="locationId">' + locOptions + '</select></div>' +
+        '<div class="form-row"><label>物品名</label><input type="text" name="name" value="' + escapeHtml(item.name) + '" required /></div>' +
+        '<div class="form-row"><label>規格</label><input type="text" name="spec" value="' + escapeHtml(item.spec) + '" /></div>' +
+        '<div class="form-row"><label>棚</label><input type="text" name="shelf" value="' + escapeHtml(item.shelf) + '" placeholder="番号 または 定数外 等" /></div>' +
+        '<div class="form-row"><label>物品コード</label><input type="text" name="code" value="' + escapeHtml(item.code) + '" /></div>' +
+        '<div class="form-row"><label>単位</label><input type="text" name="unit" value="' + escapeHtml(item.unit || '個') + '" /></div>' +
+        '<div class="form-row"><label>区分</label><div class="radio-group">' +
+          '<label><input type="radio" name="category" value="normal"' + (!isSpd ? ' checked' : '') + '> 通常品</label>' +
+          '<label><input type="radio" name="category" value="spd"' + (isSpd ? ' checked' : '') + '> SPD管理品</label>' +
+        '</div></div>' +
+        '<div class="form-row" id="normalQtyRow" style="' + (isSpd ? 'display:none;' : '') + '">' +
+          '<label>定数</label><input type="number" name="standardQty" min="0" value="' + (item.standardQty || 0) + '" />' +
+        '</div>' +
+        '<div class="form-row" id="spdQtyRow" style="' + (isSpd ? '' : 'display:none;') + '">' +
+          '<label>SPD側の定数(参考表示のみ)</label><input type="number" name="spdSystemQty" min="0" value="' + (item.spdSystemQty || 0) + '" />' +
+        '</div>' +
+        '<div class="form-row" id="spdCheckQtyRow" style="' + (isSpd ? '' : 'display:none;') + '">' +
+          '<label>ME室 現物確認用の定数</label><input type="number" name="spdCheckQty" min="0" value="' + (item.spdCheckQty || 0) + '" />' +
+        '</div>' +
+        '<div class="form-row"><label>備考</label><input type="text" name="note" value="' + escapeHtml(item.note) + '" placeholder="期限確認 など" /></div>' +
+        '<div class="modal-actions">' +
+          '<button type="button" class="btn btn--ghost" data-action="close-modal">キャンセル</button>' +
+          '<button type="submit" class="btn btn--primary">保存</button>' +
+        '</div>' +
+      '</form>'
+    );
+
+    var form = document.getElementById('itemForm');
+    var photoPreview = document.getElementById('photoPreview');
+    var photoInput = document.getElementById('photoInput');
+    var removePhotoBtn = document.getElementById('removePhotoBtn');
+    photoInput.addEventListener('change', function(){
+      var file = photoInput.files && photoInput.files[0];
+      if(!file) return;
+      compressImage(file, 900, 0.72, function(dataUrl){
+        if(dataUrl){
+          pendingPhoto = dataUrl;
+          photoPreview.innerHTML = '<img src="' + dataUrl + '" alt="">';
+          removePhotoBtn.style.display = '';
+        } else {
+          alert('写真の読み込みに失敗しました。');
+        }
+      });
+    });
+    removePhotoBtn.addEventListener('click', function(){
+      pendingPhoto = null;
+      photoPreview.innerHTML = '';
+      removePhotoBtn.style.display = 'none';
+      photoInput.value = '';
+    });
+
+    var normalQtyRow = document.getElementById('normalQtyRow');
+    var spdQtyRow = document.getElementById('spdQtyRow');
+    var spdCheckQtyRow = document.getElementById('spdCheckQtyRow');
+    form.querySelectorAll('input[name="category"]').forEach(function(r){
+      r.addEventListener('change', function(){
+        var spdSel = form.category.value === 'spd';
+        normalQtyRow.style.display = spdSel ? 'none' : '';
+        spdQtyRow.style.display = spdSel ? '' : 'none';
+        spdCheckQtyRow.style.display = spdSel ? '' : 'none';
+      });
+    });
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var fd = new FormData(form);
+      var category = fd.get('category');
+      var name = fd.get('name').trim();
+      if(!name){ alert('物品名を入力してください。'); return; }
+      var standardQty = Number(fd.get('standardQty')) || 0;
+      var spdSystemQty = Number(fd.get('spdSystemQty')) || 0;
+      var spdCheckQty = Number(fd.get('spdCheckQty')) || 0;
+      var payload = {
+        locationId: fd.get('locationId'),
+        name: name,
+        spec: fd.get('spec').trim(),
+        shelf: fd.get('shelf').trim(),
+        code: fd.get('code').trim(),
+        unit: fd.get('unit').trim() || '個',
+        category: category,
+        standardQty: category === 'normal' ? standardQty : 0,
+        spdSystemQty: category === 'spd' ? spdSystemQty : 0,
+        spdCheckQty: category === 'spd' ? spdCheckQty : 0,
+        note: fd.get('note').trim(),
+        photo: pendingPhoto || ''
+      };
+      if(editing){
+        Object.assign(item, payload);
+      } else {
+        state.items.push(Object.assign({ id: uid() }, payload));
+      }
+      saveState();
+      closeModal();
+      renderMaster();
+      renderCheck();
+    });
+  }
+
+  function renderMaster(){
+    renderLocationList();
+    renderItemTable();
+  }
+
+  /* ---------- History ---------- */
+  function renderHistory(){
+    var el = document.getElementById('historyList');
+    if(state.records.length === 0){
+      el.innerHTML = '<div class="empty-state"><p>まだ記録がありません。</p></div>';
+      return;
+    }
+    el.innerHTML = state.records.map(function(r){
+      var total = Object.keys(r.entries).length;
+      var orderCount = 0, checkCount = 0;
+      Object.keys(r.entries).forEach(function(id){
+        var item = state.items.find(function(it){ return it.id === id; });
+        if(!item) return;
+        var status = itemStatus(item, String(r.entries[id]));
+        if(status.state === 'order') orderCount++;
+        if(status.state === 'check') checkCount++;
+      });
+      return '<div class="history-row" data-action="view-record" data-id="' + r.id + '">' +
+        '<div><div class="history-row__date">' + escapeHtml(r.date) + '</div>' +
+        '<div class="history-row__meta">担当: ' + escapeHtml(r.staff) + ' ／ 記録件数 ' + total + '件' +
+        (orderCount ? ' ／ 発注 ' + orderCount + '件' : '') +
+        (checkCount ? ' ／ 要確認 ' + checkCount + '件' : '') + '</div></div>' +
+        '<span style="color:var(--ink-soft);font-size:18px;">›</span></div>';
+    }).join('');
+  }
+
+  function openRecordDetail(recordId){
+    var r = state.records.find(function(x){ return x.id === recordId; });
+    if(!r) return;
+    var text = buildOrderText(r.entries, r.date);
+    var rows = Object.keys(r.entries).map(function(id){
+      var item = state.items.find(function(it){ return it.id === id; });
+      if(!item) return '';
+      var status = itemStatus(item, String(r.entries[id]));
+      var cls = statusClass(status.state);
+      var statusHtml = status.state !== 'empty' ? ('<span class="item-row__status ' + cls + '">' + status.label + '</span>') : '';
+      var displayVal = r.entries[id] === 'SUFFICIENT' ? '十分(目視)' : (r.entries[id] + escapeHtml(item.unit || ''));
+      return '<div class="item-row ' + cls + '">' +
+        '<div class="item-row__main"><div class="item-row__name">' + escapeHtml(item.name) + '</div>' +
+        (item.spec ? '<div class="item-row__spec">' + escapeHtml(item.spec) + '</div>' : '') + '</div>' +
+        '<div class="item-row__std">実数<br>' + displayVal + '</div>' +
+        '<div class="item-row__status-wrap">' + statusHtml + '</div></div>';
+    }).join('');
+    openModal(
+      '<h3>' + escapeHtml(r.date) + ' の記録(担当: ' + escapeHtml(r.staff) + ')</h3>' +
+      '<div style="max-height:40vh;overflow-y:auto;margin-bottom:12px;">' + (rows || '<p>記録された物品がありません。</p>') + '</div>' +
+      '<div class="modal-actions" style="justify-content:space-between;">' +
+        '<button type="button" class="btn btn--danger" data-action="delete-record" data-id="' + r.id + '">この記録を削除</button>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button type="button" class="btn btn--ghost" data-action="close-modal">閉じる</button>' +
+          '<button type="button" class="btn btn--accent" id="copyRecordOrderBtn">発注リストをコピー</button>' +
+        '</div>' +
+      '</div>'
+    );
+    document.getElementById('copyRecordOrderBtn').addEventListener('click', function(){ copyText(text); });
+  }
+
+  /* ---------- Modal ---------- */
+  function openModal(html){
+    document.getElementById('modalContent').innerHTML = html;
+    document.getElementById('modalOverlay').hidden = false;
+  }
+  function closeModal(){
+    document.getElementById('modalOverlay').hidden = true;
+    document.getElementById('modalContent').innerHTML = '';
+  }
+  // 入力欄でドラッグ開始→モーダル外で離した場合に閉じないよう、押下位置も確認する
+  var overlayPressStartedOnOverlay = false;
+  document.getElementById('modalOverlay').addEventListener('mousedown', function(e){
+    overlayPressStartedOnOverlay = (e.target.id === 'modalOverlay');
+  });
+  document.getElementById('modalOverlay').addEventListener('touchstart', function(e){
+    overlayPressStartedOnOverlay = (e.target.id === 'modalOverlay');
+  }, {passive:true});
+  document.getElementById('modalOverlay').addEventListener('click', function(e){
+    if(e.target.id === 'modalOverlay' && overlayPressStartedOnOverlay) closeModal();
+    overlayPressStartedOnOverlay = false;
+  });
+
+  /* ---------- Toast ---------- */
+  function showToast(msg){
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.hidden = true; }, 2600);
+  }
+
+  /* ---------- Delegated actions ---------- */
+  document.body.addEventListener('click', function(e){
+    var closeBtn = e.target.closest('[data-action="close-modal"]');
+    if(closeBtn){ closeModal(); return; }
+
+    var gotoMaster = e.target.closest('[data-action="goto-master"]');
+    if(gotoMaster){ setTab('master'); return; }
+
+    var clearEntry = e.target.closest('[data-action="clear-entry"]');
+    if(clearEntry){
+      delete state.draft.entries[clearEntry.dataset.id];
+      saveState();
+      renderCheckListMode();
+      updateProgress();
+      return;
+    }
+
+    var delLoc = e.target.closest('[data-action="delete-location"]');
+    if(delLoc){
+      var locId = delLoc.dataset.id;
+      var inUse = state.items.some(function(it){ return it.locationId === locId; });
+      if(inUse){ alert('この設置場所を使用している物品があります。先に物品の設置場所を変更するか削除してください。'); return; }
+      if(confirm('この設置場所を削除しますか？')){
+        state.locations = state.locations.filter(function(l){ return l.id !== locId; });
+        saveState();
+        renderMaster();
+      }
+      return;
+    }
+
+    var moveBtn = e.target.closest('[data-action="move-up"],[data-action="move-down"]');
+    if(moveBtn){
+      if(moveBtn.disabled) return;
+      var dir = moveBtn.dataset.action === 'move-up' ? -1 : 1;
+      var q = (document.getElementById('masterSearch').value || '').trim().toLowerCase();
+      var visible = state.items.filter(function(it){
+        if(!q) return true;
+        return (it.name || '').toLowerCase().indexOf(q) !== -1 ||
+               (it.code || '').toLowerCase().indexOf(q) !== -1 ||
+               (it.spec || '').toLowerCase().indexOf(q) !== -1;
+      });
+      var vi = visible.findIndex(function(it){ return it.id === moveBtn.dataset.id; });
+      var neighbor = visible[vi + dir];
+      if(vi !== -1 && neighbor){
+        var a = state.items.findIndex(function(it){ return it.id === moveBtn.dataset.id; });
+        var b = state.items.findIndex(function(it){ return it.id === neighbor.id; });
+        var tmp = state.items[a]; state.items[a] = state.items[b]; state.items[b] = tmp;
+        saveState();
+        renderItemTable();
+      }
+      return;
+    }
+
+    var editItem = e.target.closest('[data-action="edit-item"]');
+    if(editItem){ openItemForm(editItem.dataset.id); return; }
+
+    var delItem = e.target.closest('[data-action="delete-item"]');
+    if(delItem){
+      if(confirm('この物品を削除しますか？')){
+        state.items = state.items.filter(function(it){ return it.id !== delItem.dataset.id; });
+        saveState();
+        renderMaster();
+        renderCheck();
+      }
+      return;
+    }
+
+    var viewRecord = e.target.closest('[data-action="view-record"]');
+    if(viewRecord){ openRecordDetail(viewRecord.dataset.id); return; }
+
+    var delRecord = e.target.closest('[data-action="delete-record"]');
+    if(delRecord){
+      if(confirm('この記録を削除しますか？(元に戻せません)')){
+        state.records = state.records.filter(function(r){ return r.id !== delRecord.dataset.id; });
+        saveState();
+        closeModal();
+        renderHistory();
+      }
+      return;
+    }
+  });
+
+  /* ---------- Back-navigation guard ---------- */
+  // 横スワイプ/ドラッグ等による意図しない「戻る」でページを離れないようにする
+  try{
+    history.pushState({guard:1}, '', location.href);
+    window.addEventListener('popstate', function(){
+      history.pushState({guard:1}, '', location.href);
+    });
+  }catch(e){}
+  document.addEventListener('wheel', function(e){
+    if(Math.abs(e.deltaX) > Math.abs(e.deltaY)){
+      var t = e.target;
+      var scrollable = false;
+      while(t && t !== document.body){
+        if(t.scrollWidth > t.clientWidth && getComputedStyle(t).overflowX !== 'visible'){ scrollable = true; break; }
+        t = t.parentNode;
+      }
+      if(!scrollable) e.preventDefault();
+    }
+  }, {passive:false});
+
+  /* ---------- Init ---------- */
+  setTab('check');
+  if(dayResetHappened){
+    showToast('日付が変わったため入力内容をリセットしました');
+  }
+</script>
+</body>
+</html>

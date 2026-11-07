@@ -242,7 +242,7 @@
 <body>
   <header class="app-header">
     <div class="app-header__top">
-      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v3.7</span></h1>
+      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v3.8</span></h1>
       <div class="tabs" role="tablist">
         <button class="tab is-active" role="tab" aria-selected="true" data-tab="check" type="button">チェック</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="master" type="button">マスタ管理</button>
@@ -318,7 +318,7 @@
 
   <div class="toast" id="toast" hidden aria-live="polite"></div>
 
-  <footer class="app-footer">物品チェック v3.7 ・ データは端末内(このブラウザ)に保存されます</footer>
+  <footer class="app-footer">物品チェック v3.8 ・ データは端末内(このブラウザ)に保存されます</footer>
 
 <script>
   var STORAGE_KEY = 'goodsCheck_v1';
@@ -381,11 +381,9 @@
     };
   }
 
-  function loadState(){
+  function normalizeState(parsed){
     try{
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if(!raw) return defaultState();
-      var parsed = JSON.parse(raw);
+      if(!parsed) return defaultState();
       var draft = (parsed.draft && typeof parsed.draft === 'object') ? parsed.draft : {date:todayStr(), staff:'', entries:{}, checkMode:'stack'};
       if(!draft.checkMode) draft.checkMode = 'stack';
       if(!draft.entries || typeof draft.entries !== 'object') draft.entries = {};
@@ -402,7 +400,11 @@
     }
   }
 
-  var state = loadState();
+  var state = defaultState();
+  var storageReady = false;
+  var useIdb = true;
+  var idbDb = null;
+  var saveErrShown = false;
   var currentTab = 'check';
   var toastTimer = null;
   var stackNodes = {};
@@ -410,14 +412,14 @@
   var currentStackQueueIds = [];
   var dayResetHappened = false;
 
-  (function checkDayReset(){
+  function checkDayReset(){
     var today = todayStr();
     if(state.draft.date && state.draft.date !== today){
       var hadData = Object.keys(state.draft.entries || {}).length > 0 || (state.draft.staff || '').trim() !== '';
       state.draft = { date: today, staff:'', entries:{}, checkMode: state.draft.checkMode || 'stack' };
       dayResetHappened = hadData;
     }
-  })();
+  }
 
   window.addEventListener('error', function(e){
     var banner = document.createElement('div');
@@ -426,16 +428,87 @@
     document.body.appendChild(banner);
   });
 
+  /* ---------- Storage (IndexedDB, falls back to localStorage) ---------- */
+  function idbOpen(){
+    return new Promise(function(resolve, reject){
+      if(!window.indexedDB){ reject(new Error('no idb')); return; }
+      var req = indexedDB.open('goodsCheckDB', 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore('kv'); };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error || new Error('idb open failed')); };
+      req.onblocked = function(){ reject(new Error('idb blocked')); };
+    });
+  }
+  function idbGet(db, key){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction('kv', 'readonly');
+      var rq = tx.objectStore('kv').get(key);
+      rq.onsuccess = function(){ resolve(rq.result); };
+      rq.onerror = function(){ reject(rq.error); };
+    });
+  }
+  function idbPut(db, key, value){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(value, key);
+      tx.oncomplete = function(){ resolve(); };
+      tx.onerror = function(){ reject(tx.error); };
+      tx.onabort = function(){ reject(tx.error || new Error('aborted')); };
+    });
+  }
+  function reportSaveError(e){
+    console.error('save failed', e);
+    if(saveErrShown) return;
+    saveErrShown = true;
+    alert('保存に失敗しました。端末の空き容量やブラウザの設定を確認してください。');
+    setTimeout(function(){ saveErrShown = false; }, 5000);
+  }
   function saveState(){
+    if(!storageReady) return;
+    if(useIdb && idbDb){
+      idbPut(idbDb, 'state', state).catch(reportSaveError);
+      return;
+    }
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }catch(e){
-      console.error('save failed', e);
-      alert('保存に失敗しました。ブラウザのストレージ容量を確認してください。');
+      reportSaveError(e);
     }
   }
 
-  if(dayResetHappened) saveState();
+  function boot(){
+    var migrated = false;
+    function readLocal(){
+      try{
+        var raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      }catch(e){ return null; }
+    }
+    idbOpen().then(function(db){
+      idbDb = db;
+      return idbGet(db, 'state');
+    }).then(function(saved){
+      if(!saved){
+        saved = readLocal();
+        if(saved) migrated = true;
+      }
+      return saved;
+    }).catch(function(err){
+      console.error('idb unavailable, using localStorage', err);
+      useIdb = false;
+      return readLocal();
+    }).then(function(saved){
+      state = normalizeState(saved);
+      storageReady = true;
+      checkDayReset();
+      if(dayResetHappened || migrated || !saved) saveState();
+      setTab('check');
+      if(dayResetHappened) showToast('日付が変わったため入力内容をリセットしました');
+      try{
+        if(navigator.storage && navigator.storage.persist) navigator.storage.persist();
+      }catch(e){}
+    });
+  }
 
   function getLocationName(locId){
     if(locId === '__none__') return '未分類';
@@ -1351,10 +1424,7 @@
   });
 
   /* ---------- Init ---------- */
-  setTab('check');
-  if(dayResetHappened){
-    showToast('日付が変わったため入力内容をリセットしました');
-  }
+  boot();
 </script>
 </body>
 </html>

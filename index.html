@@ -242,7 +242,7 @@
 <body>
   <header class="app-header">
     <div class="app-header__top">
-      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v3.6</span></h1>
+      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v3.7</span></h1>
       <div class="tabs" role="tablist">
         <button class="tab is-active" role="tab" aria-selected="true" data-tab="check" type="button">チェック</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="master" type="button">マスタ管理</button>
@@ -318,7 +318,7 @@
 
   <div class="toast" id="toast" hidden aria-live="polite"></div>
 
-  <footer class="app-footer">物品チェック v3.6 ・ データは端末内(このブラウザ)に保存されます</footer>
+  <footer class="app-footer">物品チェック v3.7 ・ データは端末内(このブラウザ)に保存されます</footer>
 
 <script>
   var STORAGE_KEY = 'goodsCheck_v1';
@@ -531,20 +531,26 @@
 
   /* ---------- Stack mode ---------- */
   function getActiveLocationQueue(){
-    var groups = state.locations.map(function(l){ return {id:l.id, name:l.name}; });
-    groups.push({id:'__none__', name:'未分類'});
-    for(var i=0;i<groups.length;i++){
-      var g = groups[i];
-      var items = state.items.filter(function(it){ return (it.locationId || '__none__') === g.id; })
-        .filter(function(it){
-          var v = state.draft.entries[it.id];
-          return v === undefined || v === '';
-        });
-      if(items.length > 0){
-        return {locationId:g.id, locationName:g.name, queueItems:items};
-      }
+    // マスタ物品一覧の並び順どおりに進める。
+    // 未入力の先頭物品の設置場所を現在地とし、同じ設置場所が続く間を1つのスタックにする。
+    function pending(it){
+      var v = state.draft.entries[it.id];
+      return v === undefined || v === '';
     }
-    return null;
+    var startIdx = -1;
+    for(var i=0;i<state.items.length;i++){
+      if(pending(state.items[i])){ startIdx = i; break; }
+    }
+    if(startIdx === -1) return null;
+    var locId = state.items[startIdx].locationId || '__none__';
+    var queue = [];
+    for(var j=startIdx;j<state.items.length;j++){
+      var it = state.items[j];
+      if(!pending(it)) continue;
+      if((it.locationId || '__none__') !== locId) break;
+      queue.push(it);
+    }
+    return {locationId:locId, locationName:getLocationName(locId), queueItems:queue};
   }
 
   function buildStackNode(item){
@@ -743,8 +749,12 @@
     }
 
     var html = '';
-    state.locations.forEach(function(loc){ html += renderLocBlock(loc.id, loc.name); });
-    html += renderLocBlock('__none__', '未分類');
+    var locOrder = [];
+    state.items.forEach(function(it){
+      var k = it.locationId || '__none__';
+      if(locOrder.indexOf(k) === -1) locOrder.push(k);
+    });
+    locOrder.forEach(function(k){ html += renderLocBlock(k, getLocationName(k)); });
 
     listEl.innerHTML = html || '<div class="empty-state"><p>該当する物品がありません。</p></div>';
   }

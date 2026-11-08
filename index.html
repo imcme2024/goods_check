@@ -28,9 +28,10 @@
     --danger-soft:#F8E4DE;
     --radius:10px;
     --radius-sm:6px;
-    --photo-h:190px;
+    --photo-w:96px;
+    --card-h:132px;
   }
-  @media(min-width:700px){:root{--photo-h:260px;}}
+  @media(min-width:700px){:root{--photo-w:112px;--card-h:144px;}}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;overscroll-behavior-x:none;}
   input,textarea,select{overscroll-behavior-x:none;}
@@ -41,7 +42,7 @@
     font-size:15px;
     line-height:1.5;
     -webkit-font-smoothing:antialiased;
-    padding-bottom:88px;
+    padding-bottom:calc(var(--dock-h,0px) + 16px);
   }
   button,input,select,textarea{font-family:inherit;}
   :focus-visible{outline:2px solid var(--primary-soft);outline-offset:2px;}
@@ -83,19 +84,38 @@
   .check-mode-bar__info strong{color:var(--primary);font-weight:700;}
 
   /* Stack mode */
-  .stack-area{position:relative;isolation:isolate;min-height:calc(var(--photo-h) + 300px);margin-bottom:8px;}
-  .stack-card{position:absolute;left:0;right:0;border-radius:var(--radius-sm);transition:top .42s cubic-bezier(.2,.8,.2,1),transform .42s cubic-bezier(.2,.8,.2,1),opacity .42s ease;}
-  .stack-card__inner{position:relative;background:var(--surface);border-left:4px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;}
+  .stack-area{position:relative;isolation:isolate;height:calc(var(--card-h) + 64px);margin-bottom:8px;}
+  .stack-card{position:absolute;left:0;right:0;top:0;border-radius:var(--radius);transform-origin:50% 100%;transition:transform .55s cubic-bezier(.34,1.45,.5,1),opacity .35s ease;}
+  .stack-card.is-leaving{transition:transform .5s cubic-bezier(.45,0,.9,.5),opacity .45s ease-in;}
+  .stack-card__shade{position:absolute;inset:0;background:var(--ink);opacity:0;pointer-events:none;transition:opacity .4s ease;}
+  .stack-card__result{
+    position:absolute;top:0;right:0;bottom:0;width:46%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:2px;text-align:center;
+    animation:stackResultPop .2s ease-out both;
+  }
+  .stack-card__result-val{font-size:34px;line-height:1.1;font-weight:800;font-variant-numeric:tabular-nums;}
+  .stack-card__result-state{font-size:16px;font-weight:700;}
+  .stack-card__result.is-ok{background:var(--accent-soft);color:#245943;}
+  .stack-card__result.is-order{background:var(--danger-soft);color:#7A2A1C;}
+  .stack-card__result.is-check{background:var(--warn-soft);color:#7A5A12;}
+  .stack-card__inner.res-ok{border-left-color:var(--accent);}
+  .stack-card__inner.res-order{border-left-color:var(--danger);}
+  .stack-card__inner.res-check{border-left-color:var(--warn);}
+  @keyframes stackResultPop{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
+  .stack-card__inner{
+    position:relative;display:flex;align-items:center;gap:14px;height:var(--card-h);padding:0 14px 0 12px;
+    background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;box-shadow:0 2px 8px rgba(30,42,39,.12);
+  }
   .stack-card__inner.is-front{border-left-color:var(--accent);}
-  .stack-card__photo{width:100%;height:var(--photo-h);background:var(--surface-alt);}
+  .stack-card__photo{width:var(--photo-w);height:var(--photo-w);flex-shrink:0;border-radius:8px;background:var(--surface-alt);overflow:hidden;}
   .stack-card__photo img{width:100%;height:100%;object-fit:contain;display:block;}
-  .stack-card__body{padding:10px 12px 12px;}
-  .stack-card__name{font-size:16px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .stack-card__spec{font-size:12.5px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .stack-card__target{font-size:12px;color:var(--ink-soft);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .stack-card__controls{display:flex;align-items:center;gap:8px;margin-top:10px;}
-  .stack-card__input{flex:1;height:44px;text-align:center;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:16px;font-variant-numeric:tabular-nums;}
-  .stack-card__ok{height:44px;padding:0 18px;border-radius:999px;border:none;background:var(--warn-soft);color:#7A5A12;font-size:13px;font-weight:700;flex-shrink:0;}
+  .stack-card__body{flex:1;min-width:0;}
+  .stack-card__name{font-size:22px;line-height:1.25;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stack-card__spec{font-size:15px;line-height:1.4;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stack-card__target{font-size:17px;line-height:1.4;font-weight:600;color:var(--ink);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stack-card__target .tag{font-size:12px;font-weight:600;vertical-align:middle;}
+  .stack-card__prev{font-size:16px;line-height:1.4;color:var(--ink-soft);margin-top:2px;}
   .stack-empty{text-align:center;padding:34px 16px;color:var(--ink-soft);}
 
   /* Check list (list mode) */
@@ -131,11 +151,14 @@
   .tag--clear{border:none;cursor:pointer;}
 
   .item-row__std{width:76px;flex-shrink:0;font-size:12px;color:var(--ink-soft);text-align:right;}
-  .item-row__input{width:64px;flex-shrink:0;}
-  .item-row__input input{
-    width:100%;padding:7px 6px;text-align:right;border:1px solid var(--line);
-    border-radius:var(--radius-sm);font-size:15px;font-variant-numeric:tabular-nums;
+  .item-row{cursor:pointer;}
+  .item-row.is-active{outline:2px solid var(--primary-soft);outline-offset:-2px;background:var(--accent-soft);}
+  .item-row__val{
+    width:84px;flex-shrink:0;min-height:40px;display:flex;align-items:center;justify-content:flex-end;
+    padding:6px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);
+    font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;
   }
+  .item-row__val.is-empty{font-size:12px;font-weight:400;color:var(--ink-soft);}
   .item-row__status-wrap{width:70px;flex-shrink:0;text-align:right;}
   .item-row__status{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;}
   .item-row__status.is-order{background:var(--danger-soft);color:#7A2A1C;}
@@ -150,11 +173,37 @@
   }
 
   /* Sticky action bar */
-  .sticky-bar{
-    position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);
-    border-top:1px solid var(--line);padding:10px 14px;display:flex;
-    align-items:center;justify-content:space-between;gap:10px;box-shadow:0 -2px 10px rgba(0,0,0,.05);
+  .dock{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;pointer-events:none;
   }
+  .dock > *{pointer-events:auto;}
+  .keypad{
+    display:grid;grid-template-columns:repeat(3,48px);gap:8px;
+    width:max-content;margin:0 12px 8px auto;padding:10px 12px;
+    background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:30px;
+    box-shadow:0 6px 22px rgba(30,42,39,.18);
+  }
+  .keypad__key{
+    width:48px;height:48px;border:none;border-radius:50%;padding:0;
+    background:var(--surface-alt);color:var(--primary);font-size:20px;font-weight:600;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;cursor:pointer;
+    transition:transform .08s ease,background .08s ease;
+  }
+  .keypad__key:active{background:var(--accent);color:#fff;transform:scale(.92);}
+  .keypad__key--sufficient{background:var(--primary);color:#fff;font-size:14px;}
+  .keypad__key--sufficient:active{background:var(--accent);}
+  .keypad__key--back{background:var(--warn-soft);color:#7A5A12;font-size:13px;}
+  .sticky-bar{
+    background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -2px 10px rgba(0,0,0,.05);
+    padding:8px 14px calc(8px + env(safe-area-inset-bottom));display:flex;
+    align-items:center;justify-content:space-between;gap:10px;
+  }
+  .sticky-bar > *{max-width:720px;}
+  .item-row__clear{
+    width:28px;height:28px;flex-shrink:0;border:none;border-radius:50%;
+    background:var(--surface-alt);color:var(--ink-soft);font-size:15px;line-height:1;cursor:pointer;padding:0;
+  }
+  .item-row__clear.is-hidden{visibility:hidden;}
   .progress-text{font-size:12px;color:var(--ink-soft);}
   .sticky-bar__actions{display:flex;gap:8px;}
   .btn{border:none;border-radius:var(--radius-sm);padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;}
@@ -226,7 +275,7 @@
   .order-text{white-space:pre-wrap;font-size:13px;line-height:1.7;background:var(--surface-alt);border-radius:var(--radius-sm);padding:12px;max-height:40vh;overflow-y:auto;}
 
   .toast{
-    position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--primary);color:#fff;
+    position:fixed;left:50%;bottom:calc(var(--dock-h,0px) + 12px);transform:translateX(-50%);background:var(--primary);color:#fff;
     padding:10px 18px;border-radius:999px;font-size:13px;z-index:60;box-shadow:0 4px 14px rgba(0,0,0,.2);
   }
 
@@ -235,14 +284,15 @@
   .app-footer{text-align:center;font-size:11px;color:var(--ink-soft);padding:16px;}
 
   @media(prefers-reduced-motion:reduce){
-    .item-row,.modal-overlay,.stack-card{transition:none;}
+    .item-row,.modal-overlay,.stack-card,.stack-card.is-leaving,.stack-card__shade{transition:none;}
+    .stack-card__result{animation:none;}
   }
 </style>
 </head>
 <body>
   <header class="app-header">
     <div class="app-header__top">
-      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v3.8</span></h1>
+      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v4.2</span></h1>
       <div class="tabs" role="tablist">
         <button class="tab is-active" role="tab" aria-selected="true" data-tab="check" type="button">チェック</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="master" type="button">マスタ管理</button>
@@ -304,11 +354,27 @@
     </section>
   </main>
 
-  <div class="sticky-bar" id="checkStickyBar">
-    <span id="checkProgress" class="progress-text"></span>
-    <div class="sticky-bar__actions">
-      <button type="button" id="showOrderListBtn" class="btn btn--ghost">発注リストを見る</button>
-      <button type="button" id="recordBtn" class="btn btn--accent">記録する</button>
+  <div class="dock" id="checkStickyBar">
+    <div class="keypad" id="keypad" role="group" aria-label="実数入力パッド">
+      <button type="button" class="keypad__key" data-key="1">1</button>
+      <button type="button" class="keypad__key" data-key="2">2</button>
+      <button type="button" class="keypad__key" data-key="3">3</button>
+      <button type="button" class="keypad__key" data-key="4">4</button>
+      <button type="button" class="keypad__key" data-key="5">5</button>
+      <button type="button" class="keypad__key" data-key="6">6</button>
+      <button type="button" class="keypad__key" data-key="7">7</button>
+      <button type="button" class="keypad__key" data-key="8">8</button>
+      <button type="button" class="keypad__key" data-key="9">9</button>
+      <button type="button" class="keypad__key keypad__key--back" data-key="BACK">戻る</button>
+      <button type="button" class="keypad__key" data-key="0">0</button>
+      <button type="button" class="keypad__key keypad__key--sufficient" data-key="SUFFICIENT">十分</button>
+    </div>
+    <div class="sticky-bar">
+      <span id="checkProgress" class="progress-text"></span>
+      <div class="sticky-bar__actions">
+        <button type="button" id="showOrderListBtn" class="btn btn--ghost">発注リストを見る</button>
+        <button type="button" id="recordBtn" class="btn btn--accent" hidden>記録する</button>
+      </div>
     </div>
   </div>
 
@@ -318,15 +384,15 @@
 
   <div class="toast" id="toast" hidden aria-live="polite"></div>
 
-  <footer class="app-footer">物品チェック v3.8 ・ データは端末内(このブラウザ)に保存されます</footer>
+  <footer class="app-footer">物品チェック v4.2 ・ データは端末内(このブラウザ)に保存されます</footer>
 
 <script>
   var STORAGE_KEY = 'goodsCheck_v1';
   var STACK_RANKS = [
-    {top:0, scale:1, opacity:1, z:40},
-    {top:56, scale:0.94, opacity:0.55, z:30},
-    {top:100, scale:0.88, opacity:0.28, z:20},
-    {top:136, scale:0.82, opacity:0, z:10}
+    {top:0, scale:1, opacity:1, z:40, shade:0},
+    {top:30, scale:0.94, opacity:1, z:30, shade:0.04},
+    {top:60, scale:0.88, opacity:1, z:20, shade:0.08},
+    {top:90, scale:0.82, opacity:0, z:10, shade:0.08}
   ];
 
   function uid(){
@@ -410,6 +476,8 @@
   var stackNodes = {};
   var currentStackLocationId = null;
   var currentStackQueueIds = [];
+  var activeEntryId = null;
+  var answerHistory = [];
   var dayResetHappened = false;
 
   function checkDayReset(){
@@ -520,11 +588,16 @@
     if(state.records.length === 0) return undefined;
     return state.records[0].entries[itemId];
   }
-  function placeholderFor(item){
+  function prevText(item){
     var v = getLastRecordedValue(item.id);
-    if(v === undefined) return '実数';
+    if(v === undefined) return '';
     if(v === 'SUFFICIENT') return '前回:十分';
     return '前回:' + v + (item.unit || '');
+  }
+  function valueText(item, qtyRaw){
+    if(qtyRaw === undefined || qtyRaw === '') return '';
+    if(qtyRaw === 'SUFFICIENT') return '十分';
+    return qtyRaw + (item.unit || '');
   }
 
   function itemStatus(item, qtyRaw){
@@ -556,7 +629,8 @@
     document.getElementById('view-master').hidden = tab !== 'master';
     document.getElementById('view-history').hidden = tab !== 'history';
     document.getElementById('checkMetaBar').style.display = tab === 'check' ? 'flex' : 'none';
-    document.getElementById('checkStickyBar').style.display = tab === 'check' ? 'flex' : 'none';
+    document.getElementById('checkStickyBar').style.display = tab === 'check' ? 'block' : 'none';
+    updateDockHeight();
     if(tab === 'check') renderCheck();
     if(tab === 'master') renderMaster();
     if(tab === 'history') renderHistory();
@@ -600,6 +674,8 @@
       return v !== undefined && v !== '';
     }).length;
     document.getElementById('checkProgress').textContent = total ? ('入力済み ' + filled + '/' + total) : '';
+    document.getElementById('recordBtn').hidden = !(total > 0 && filled === total);
+    updateDockHeight();
   }
 
   /* ---------- Stack mode ---------- */
@@ -645,23 +721,10 @@
           '<div class="stack-card__name">' + escapeHtml(item.name) + '</div>' +
           (item.spec ? '<div class="stack-card__spec">' + escapeHtml(item.spec) + '</div>' : '') +
           '<div class="stack-card__target">' + targetHtml + '</div>' +
-          '<div class="stack-card__controls">' +
-            '<input type="text" inputmode="numeric" placeholder="' + escapeHtml(placeholderFor(item)) + '" class="stack-card__input" />' +
-            '<button type="button" class="stack-card__ok">十分</button>' +
-          '</div>' +
+          (prevText(item) ? '<div class="stack-card__prev">' + escapeHtml(prevText(item)) + '</div>' : '') +
         '</div>' +
+        '<div class="stack-card__shade"></div>' +
       '</div>';
-    var input = outer.querySelector('.stack-card__input');
-    var okBtn = outer.querySelector('.stack-card__ok');
-    okBtn.addEventListener('click', function(){
-      if(outer.dataset.front === '1') completeStackItem(item.id, 'SUFFICIENT');
-    });
-    input.addEventListener('keydown', function(e){
-      if(e.key === 'Enter' && input.value !== '' && outer.dataset.front === '1') completeStackItem(item.id, input.value);
-    });
-    input.addEventListener('blur', function(){
-      if(input.value !== '' && outer.dataset.front === '1') completeStackItem(item.id, input.value);
-    });
     return outer;
   }
 
@@ -670,19 +733,14 @@
       var node = stackNodes[id];
       if(!node) return;
       var s = STACK_RANKS[idx] || STACK_RANKS[STACK_RANKS.length - 1];
-      node.style.top = s.top + 'px';
-      node.style.transform = 'scale(' + s.scale + ')';
+      node.style.transform = 'translateY(' + s.top + 'px) scale(' + s.scale + ')';
       node.style.opacity = s.opacity;
       node.style.zIndex = s.z;
+      var shade = node.querySelector('.stack-card__shade');
+      if(shade) shade.style.opacity = s.shade;
       var inner = node.querySelector('.stack-card__inner');
       inner.classList.toggle('is-front', idx === 0);
       node.dataset.front = idx === 0 ? '1' : '0';
-      var input = node.querySelector('.stack-card__input');
-      var okBtn = node.querySelector('.stack-card__ok');
-      input.style.pointerEvents = idx === 0 ? 'auto' : 'none';
-      okBtn.style.pointerEvents = idx === 0 ? 'auto' : 'none';
-      input.style.opacity = idx === 0 ? '1' : '0';
-      okBtn.style.opacity = idx === 0 ? '1' : '0';
     });
   }
 
@@ -723,28 +781,56 @@
     updateStackInfoForCurrentLocation();
   }
 
+  var stackLeaving = 0;
+  function showStackResult(node, item, value){
+    if(!item) return;
+    var st = itemStatus(item, value);
+    var cls = statusClass(st.state) || 'is-ok';
+    var val = valueText(item, value);
+    var stateText = st.state === 'order' ? st.label : (st.state === 'check' ? '要確認' : 'OK ✓');
+    var res = document.createElement('div');
+    res.className = 'stack-card__result ' + cls;
+    res.innerHTML = '<span class="stack-card__result-val">' + escapeHtml(val) + '</span>' +
+                    '<span class="stack-card__result-state">' + escapeHtml(stateText) + '</span>';
+    var inner = node.querySelector('.stack-card__inner');
+    inner.appendChild(res);
+    inner.classList.add('res-' + cls.replace('is-', ''));
+  }
+
   function completeStackItem(itemId, value){
     state.draft.entries[itemId] = value;
     saveState();
 
+    var item = state.items.find(function(it){ return it.id === itemId; });
     var node = stackNodes[itemId];
-    if(node){
-      node.style.top = (parseFloat(node.style.top || '0') - 220) + 'px';
-      node.style.opacity = '0';
-    }
     currentStackQueueIds = currentStackQueueIds.filter(function(id){ return id !== itemId; });
+    stackLeaving++;
+    if(node){
+      node.dataset.front = '0';
+      node.style.zIndex = 50;
+      showStackResult(node, item, value);
+    }
+    // 後ろのカードはすぐにせり上がる(入力は待たせない)
     layoutStack(currentStackQueueIds);
     updateStackInfoForCurrentLocation();
     updateProgress();
 
+    // 結果を少し見せてから、上へ飛ばして消す
+    setTimeout(function(){
+      if(!node) return;
+      node.classList.add('is-leaving');
+      node.style.transform = 'translateY(-210px) scale(1.03)';
+      node.style.opacity = '0';
+    }, 250);
     setTimeout(function(){
       if(node && node.parentNode) node.parentNode.removeChild(node);
-      delete stackNodes[itemId];
-      if(currentStackQueueIds.length === 0){
+      if(stackNodes[itemId] === node) delete stackNodes[itemId];
+      stackLeaving = Math.max(0, stackLeaving - 1);
+      if(stackLeaving === 0 && currentStackQueueIds.length === 0){
         renderCheckStack();
         updateProgress();
       }
-    }, 440);
+    }, 790);
   }
 
   /* ---------- List mode ---------- */
@@ -764,14 +850,11 @@
       statusHtml = '<span class="item-row__status ' + statusClass(status.state) + '">' + status.label + '</span>';
     }
     var photoHtml = item.photo ? '<img src="' + item.photo + '" alt="">' : '';
-    var inputArea;
-    if(qtyRaw === 'SUFFICIENT'){
-      inputArea = '<button type="button" class="tag tag--note tag--clear" data-action="clear-entry" data-id="' + item.id + '">十分(取消)</button>';
-    } else {
-      inputArea = '<input type="text" inputmode="numeric" placeholder="' + escapeHtml(placeholderFor(item)) + '" value="' + (qtyRaw !== undefined ? escapeHtml(qtyRaw) : '') + '" data-entry-input="' + item.id + '" />';
-    }
+    var vt = valueText(item, qtyRaw);
+    var inputArea = '<div class="item-row__val' + (vt ? '' : ' is-empty') + '">' + escapeHtml(vt || prevText(item) || '未入力') + '</div>' +
+      '<button type="button" class="item-row__clear' + (vt ? '' : ' is-hidden') + '" data-action="clear-entry" data-id="' + item.id + '" aria-label="入力を取り消す">×</button>';
     return '' +
-      '<div class="item-row ' + rowClass + '" data-item-id="' + item.id + '">' +
+      '<div class="item-row ' + rowClass + (item.id === activeEntryId ? ' is-active' : '') + '" data-item-id="' + item.id + '">' +
         '<div class="item-row__photo">' + photoHtml + '</div>' +
         '<div class="item-row__main">' +
           '<div class="item-row__name">' + escapeHtml(item.name) + '</div>' +
@@ -779,7 +862,7 @@
           (tags.length ? '<div class="item-row__tags">' + tags.join('') + '</div>' : '') +
         '</div>' +
         '<div class="item-row__std">' + stdLabel + '<br>' + stdValue + escapeHtml(item.unit || '') + '</div>' +
-        '<div class="item-row__input">' + inputArea + '</div>' +
+        inputArea +
         '<div class="item-row__status-wrap">' + statusHtml + '</div>' +
       '</div>';
   }
@@ -793,6 +876,9 @@
       return;
     }
 
+    if(!activeEntryId || !state.items.some(function(it){ return it.id === activeEntryId; })){
+      activeEntryId = firstPendingId();
+    }
     var itemsByLoc = {};
     state.items.forEach(function(it){
       var key = it.locationId || '__none__';
@@ -844,6 +930,14 @@
     if(cls) row.classList.add(cls);
     var statusWrap = row.querySelector('.item-row__status-wrap');
     statusWrap.innerHTML = status.state === 'empty' ? '' : '<span class="item-row__status ' + cls + '">' + status.label + '</span>';
+    var valEl = row.querySelector('.item-row__val');
+    if(valEl){
+      var vt = valueText(item, qtyRaw);
+      valEl.textContent = vt || prevText(item) || '未入力';
+      valEl.classList.toggle('is-empty', !vt);
+    }
+    var clrEl = row.querySelector('.item-row__clear');
+    if(clrEl) clrEl.classList.toggle('is-hidden', !valueText(item, qtyRaw));
     var section = row.closest('.location-section');
     if(section){
       var rows = section.querySelectorAll('.item-row');
@@ -858,17 +952,104 @@
     }
   }
 
-  document.getElementById('checkList').addEventListener('input', function(e){
-    var input = e.target.closest('[data-entry-input]');
-    if(!input) return;
-    var id = input.dataset.entryInput;
-    var val = input.value;
-    if(val === ''){ delete state.draft.entries[id]; }
-    else { state.draft.entries[id] = val; }
+  /* ---------- Keypad (fixed numeric pad) ---------- */
+  function isPending(it){
+    var v = state.draft.entries[it.id];
+    return v === undefined || v === '';
+  }
+  function firstPendingId(){
+    for(var i=0;i<state.items.length;i++){ if(isPending(state.items[i])) return state.items[i].id; }
+    return null;
+  }
+  function setActiveEntry(id, scroll){
+    activeEntryId = id;
+    document.querySelectorAll('.item-row.is-active').forEach(function(r){ r.classList.remove('is-active'); });
+    var row = document.querySelector('.item-row[data-item-id="' + id + '"]');
+    if(row){
+      row.classList.add('is-active');
+      if(scroll) row.scrollIntoView({block:'center', behavior:'smooth'});
+    }
+  }
+  function advanceListActive(fromId){
+    var idx = state.items.findIndex(function(it){ return it.id === fromId; });
+    var next = null, i;
+    for(i = idx + 1; i < state.items.length; i++){ if(isPending(state.items[i])){ next = state.items[i].id; break; } }
+    if(!next){
+      for(i = 0; i < idx; i++){ if(isPending(state.items[i])){ next = state.items[i].id; break; } }
+    }
+    if(next) setActiveEntry(next, true);
+  }
+  function modalIsOpen(){ return !document.getElementById('modalOverlay').hidden; }
+
+  function enterValue(value){
+    if(modalIsOpen() || currentTab !== 'check') return;
+    if(state.draft.checkMode === 'list'){
+      var id = activeEntryId;
+      if(!id || !state.items.some(function(it){ return it.id === id; })) return;
+      state.draft.entries[id] = value;
+      answerHistory.push(id);
+      saveState();
+      refreshItemRow(id);
+      updateProgress();
+      advanceListActive(id);
+    } else {
+      var front = currentStackQueueIds[0];
+      if(!front) return;
+      answerHistory.push(front);
+      completeStackItem(front, value);
+    }
+  }
+
+  function undoLast(){
+    if(modalIsOpen() || currentTab !== 'check') return;
+    var id = null;
+    while(answerHistory.length){
+      var c = answerHistory.pop();
+      if(state.draft.entries[c] !== undefined && state.draft.entries[c] !== '' && state.items.some(function(it){ return it.id === c; })){ id = c; break; }
+    }
+    if(!id){
+      for(var i = state.items.length - 1; i >= 0; i--){
+        var v = state.draft.entries[state.items[i].id];
+        if(v !== undefined && v !== ''){ id = state.items[i].id; break; }
+      }
+    }
+    if(!id){ showToast('戻せる入力がありません'); return; }
+    delete state.draft.entries[id];
     saveState();
-    refreshItemRow(id);
-    updateProgress();
+    activeEntryId = id;
+    renderCheck();
+    if(state.draft.checkMode === 'list') setActiveEntry(id, true);
+    showToast('1つ戻しました');
+  }
+
+  document.getElementById('keypad').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-key]');
+    if(!btn) return;
+    var key = btn.dataset.key;
+    if(key === 'BACK') undoLast();
+    else enterValue(key);
   });
+  // 物理キーボード(外付けなど)でも入力できるようにする
+  document.addEventListener('keydown', function(e){
+    var t = e.target;
+    if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    if(/^[0-9]$/.test(e.key)){ enterValue(e.key); e.preventDefault(); }
+    else if(e.key === 'Backspace'){ undoLast(); e.preventDefault(); }
+  });
+  document.getElementById('checkList').addEventListener('click', function(e){
+    var row = e.target.closest('.item-row');
+    if(!row || !row.dataset.itemId) return;
+    setActiveEntry(row.dataset.itemId, false);
+  });
+
+  function updateDockHeight(){
+    var d = document.getElementById('checkStickyBar');
+    var h = (d.style.display === 'none') ? 0 : d.offsetHeight;
+    document.documentElement.style.setProperty('--dock-h', h + 'px');
+  }
+  window.addEventListener('resize', updateDockHeight);
+  window.addEventListener('orientationchange', function(){ setTimeout(updateDockHeight, 200); });
 
   document.getElementById('checkSearch').addEventListener('input', function(){ renderCheckListMode(); });
 
@@ -975,8 +1156,8 @@
     var total = state.items.length;
     var filledIds = Object.keys(state.draft.entries).filter(function(id){ return state.draft.entries[id] !== ''; });
     if(filledIds.length < total){
-      var ok = confirm('入力済み ' + filledIds.length + '/' + total + '件です。未入力の物品を残したまま記録しますか？');
-      if(!ok) return;
+      alert('未入力の物品があります。すべて入力してから記録してください。');
+      return;
     }
     var entries = {};
     filledIds.forEach(function(id){
@@ -987,6 +1168,8 @@
     state.records.unshift(record);
     if(state.staffHistory.indexOf(staff) === -1) state.staffHistory.push(staff);
     state.draft = { date: todayStr(), staff:'', entries:{}, checkMode: state.draft.checkMode || 'stack' };
+    answerHistory = [];
+    activeEntryId = null;
     saveState();
     renderCheck();
     showToast('記録しました(' + date + ' 担当:' + staff + ')');
@@ -1288,6 +1471,7 @@
     var clearEntry = e.target.closest('[data-action="clear-entry"]');
     if(clearEntry){
       delete state.draft.entries[clearEntry.dataset.id];
+      activeEntryId = clearEntry.dataset.id;
       saveState();
       renderCheckListMode();
       updateProgress();

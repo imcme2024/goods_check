@@ -68,6 +68,12 @@
   }
   .field-inline input::placeholder{color:rgba(255,255,255,.55);}
   .field-inline input[type=date]{color-scheme:dark;}
+  .field-inline select{
+    border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.08);color:#fff;
+    border-radius:var(--radius-sm);padding:6px 8px;font-size:16px;min-width:140px;
+  }
+  .field-inline select option{color:#1E2A27;background:#fff;}
+  .field-inline select:disabled{opacity:.6;}
 
   main{max-width:720px;margin:0 auto;padding:14px 12px 24px;}
   .view[hidden]{display:none;}
@@ -229,7 +235,14 @@
   .inline-form input{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:14px;}
   .inline-form button{padding:8px 14px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;font-weight:600;cursor:pointer;}
 
-  .item-table{display:flex;flex-direction:column;gap:6px;}
+  .item-table{display:flex;flex-direction:column;gap:6px;position:relative;}
+  .master-hint{font-size:12px;color:var(--ink-soft);margin:-4px 0 10px;}
+  .item-table-row{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  .item-table-row.is-dragging{
+    position:relative;z-index:30;transition:none;opacity:.96;
+    box-shadow:0 10px 24px rgba(30,42,39,.28);border-color:var(--accent);background:var(--accent-soft);
+  }
+  .drop-line{position:absolute;left:0;right:0;height:4px;margin-top:-2px;background:var(--accent);border-radius:2px;pointer-events:none;z-index:40;}
   .item-table-row{
     display:flex;align-items:center;gap:10px;background:var(--surface);
     border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;
@@ -292,7 +305,7 @@
 <body>
   <header class="app-header">
     <div class="app-header__top">
-      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v4.2</span></h1>
+      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v4.3</span></h1>
       <div class="tabs" role="tablist">
         <button class="tab is-active" role="tab" aria-selected="true" data-tab="check" type="button">チェック</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="master" type="button">マスタ管理</button>
@@ -301,8 +314,7 @@
     </div>
     <div class="app-header__meta" id="checkMetaBar">
       <label class="field-inline"><span>実施日</span><input type="date" id="checkDate" /></label>
-      <label class="field-inline"><span>担当者</span><input type="text" id="checkStaff" list="staffList" placeholder="氏名" /></label>
-      <datalist id="staffList"></datalist>
+      <label class="field-inline"><span>担当者</span><select id="checkStaff"></select></label>
     </div>
   </header>
 
@@ -331,10 +343,19 @@
         </form>
       </div>
       <div class="master-block">
+        <h2>担当者</h2>
+        <div id="staffMasterList" class="location-list"></div>
+        <form id="staffForm" class="inline-form">
+          <input type="text" id="newStaffName" placeholder="新しい担当者名" required />
+          <button type="submit">追加</button>
+        </form>
+      </div>
+      <div class="master-block">
         <div class="master-block__head">
           <h2>物品一覧</h2>
           <button type="button" id="addItemBtn" class="btn btn--primary">物品を追加</button>
         </div>
+        <div class="master-hint">行を長押しして、上下にドラッグで並べ替え(絞り込み中は不可)</div>
         <input type="search" id="masterSearch" class="search-row" placeholder="物品名・コードで検索" />
         <div id="itemTable" class="item-table"></div>
       </div>
@@ -384,7 +405,7 @@
 
   <div class="toast" id="toast" hidden aria-live="polite"></div>
 
-  <footer class="app-footer">物品チェック v4.2 ・ データは端末内(このブラウザ)に保存されます</footer>
+  <footer class="app-footer">物品チェック v4.3 ・ データは端末内(このブラウザ)に保存されます</footer>
 
 <script>
   var STORAGE_KEY = 'goodsCheck_v1';
@@ -443,8 +464,29 @@
       items:[],
       records:[],
       staffHistory:[],
+      staff:[],
       draft:{date:todayStr(), staff:'', entries:{}, checkMode:'stack'}
     };
+  }
+
+  // 担当者マスタ: staff配列があればそれを使い、無ければ過去の履歴・記録から自動で作る
+  function normalizeStaff(parsed){
+    var out = [], seen = {};
+    function add(name, id){
+      name = String(name == null ? '' : name).trim();
+      if(!name || seen[name]) return;
+      seen[name] = true;
+      out.push({ id: id || uid(), name: name });
+    }
+    if(parsed && Array.isArray(parsed.staff)){
+      parsed.staff.forEach(function(x){
+        if(x && typeof x === 'object') add(x.name, x.id); else add(x);
+      });
+    } else if(parsed){
+      (Array.isArray(parsed.staffHistory) ? parsed.staffHistory : []).forEach(function(n){ add(n); });
+      (Array.isArray(parsed.records) ? parsed.records : []).forEach(function(r){ if(r) add(r.staff); });
+    }
+    return out;
   }
 
   function normalizeState(parsed){
@@ -458,6 +500,7 @@
         items: Array.isArray(parsed.items) ? parsed.items : [],
         records: Array.isArray(parsed.records) ? parsed.records : [],
         staffHistory: Array.isArray(parsed.staffHistory) ? parsed.staffHistory : [],
+        staff: normalizeStaff(parsed),
         draft: draft
       });
     }catch(e){
@@ -483,8 +526,8 @@
   function checkDayReset(){
     var today = todayStr();
     if(state.draft.date && state.draft.date !== today){
-      var hadData = Object.keys(state.draft.entries || {}).length > 0 || (state.draft.staff || '').trim() !== '';
-      state.draft = { date: today, staff:'', entries:{}, checkMode: state.draft.checkMode || 'stack' };
+      var hadData = Object.keys(state.draft.entries || {}).length > 0;
+      state.draft = { date: today, staff: state.draft.staff || '', entries:{}, checkMode: state.draft.checkMode || 'stack' };
       dayResetHappened = hadData;
     }
   }
@@ -569,7 +612,7 @@
       state = normalizeState(saved);
       storageReady = true;
       checkDayReset();
-      if(dayResetHappened || migrated || !saved) saveState();
+      if(dayResetHappened || migrated || !saved || !(saved && Array.isArray(saved.staff))) saveState();
       setTab('check');
       if(dayResetHappened) showToast('日付が変わったため入力内容をリセットしました');
       try{
@@ -663,8 +706,20 @@
   });
 
   function renderStaffList(){
-    var dl = document.getElementById('staffList');
-    dl.innerHTML = state.staffHistory.map(function(s){ return '<option value="' + escapeHtml(s) + '"></option>'; }).join('');
+    var sel = document.getElementById('checkStaff');
+    var cur = state.draft.staff || '';
+    var names = state.staff.map(function(x){ return x.name; });
+    if(cur && names.indexOf(cur) === -1) names.push(cur);
+    if(names.length === 0){
+      sel.innerHTML = '<option value="">未登録(マスタ管理で追加)</option>';
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">選択してください</option>' + names.map(function(n){
+      return '<option value="' + escapeHtml(n) + '"' + (n === cur ? ' selected' : '') + '>' + escapeHtml(n) + '</option>';
+    }).join('');
+    sel.value = cur;
   }
 
   function updateProgress(){
@@ -1057,7 +1112,7 @@
     state.draft.date = e.target.value;
     saveState();
   });
-  document.getElementById('checkStaff').addEventListener('input', function(e){
+  document.getElementById('checkStaff').addEventListener('change', function(e){
     state.draft.staff = e.target.value;
     saveState();
   });
@@ -1148,7 +1203,7 @@
     }
     var staff = (state.draft.staff || '').trim();
     if(!staff){
-      alert('担当者を入力してください。');
+      alert(state.staff.length === 0 ? 'マスタ管理で担当者を登録してください。' : '担当者を選択してください。');
       document.getElementById('checkStaff').focus();
       return;
     }
@@ -1167,7 +1222,7 @@
     var record = { id: uid(), date: date, staff: staff, entries: entries, createdAt: new Date().toISOString() };
     state.records.unshift(record);
     if(state.staffHistory.indexOf(staff) === -1) state.staffHistory.push(staff);
-    state.draft = { date: todayStr(), staff:'', entries:{}, checkMode: state.draft.checkMode || 'stack' };
+    state.draft = { date: todayStr(), staff: staff, entries:{}, checkMode: state.draft.checkMode || 'stack' };
     answerHistory = [];
     activeEntryId = null;
     saveState();
@@ -1217,13 +1272,11 @@
     }
     el.innerHTML = items.map(function(it, idx){
       var locName = getLocationName(it.locationId || '__none__');
-      var upDis = idx === 0 ? ' disabled style="opacity:.35;"' : '';
-      var downDis = idx === items.length - 1 ? ' disabled style="opacity:.35;"' : '';
       var qtyLabel = it.category === 'spd'
         ? ('確認用定数 ' + (it.spdCheckQty || 0) + ' ／SPD定数 ' + (it.spdSystemQty || 0))
         : ('定数 ' + (it.standardQty || 0));
       var photoHtml = it.photo ? '<img src="' + it.photo + '" alt="">' : '';
-      return '<div class="item-table-row">' +
+      return '<div class="item-table-row" data-id="' + it.id + '">' +
         '<div class="item-table-row__photo">' + photoHtml + '</div>' +
         '<div class="item-table-row__main">' +
           '<div class="item-table-row__name">' + escapeHtml(it.name) + (it.category === 'spd' ? ' <span class="tag tag--spd">SPD管理</span>' : '') + '</div>' +
@@ -1233,8 +1286,6 @@
             ' ／ ' + qtyLabel + escapeHtml(it.unit || '') + '</div>' +
         '</div>' +
         '<div class="item-table-row__actions">' +
-          '<button type="button" class="icon-btn" data-action="move-up" data-id="' + it.id + '" aria-label="上へ"' + upDis + '>▲</button>' +
-          '<button type="button" class="icon-btn" data-action="move-down" data-id="' + it.id + '" aria-label="下へ"' + downDis + '>▼</button>' +
           '<button type="button" class="icon-btn" data-action="edit-item" data-id="' + it.id + '">編集</button>' +
           '<button type="button" class="icon-btn" data-action="delete-item" data-id="' + it.id + '">削除</button>' +
         '</div></div>';
@@ -1367,8 +1418,36 @@
     });
   }
 
+  function renderStaffMaster(){
+    var el = document.getElementById('staffMasterList');
+    if(state.staff.length === 0){
+      el.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">まだ担当者がいません。下記から追加してください。</p>';
+      return;
+    }
+    el.innerHTML = state.staff.map(function(x){
+      return '<span class="location-chip">' + escapeHtml(x.name) +
+        '<button type="button" data-action="delete-staff" data-id="' + x.id + '" title="削除">×</button></span>';
+    }).join('');
+  }
+  document.getElementById('staffForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var input = document.getElementById('newStaffName');
+    var name = input.value.trim();
+    if(!name) return;
+    if(state.staff.some(function(x){ return x.name === name; })){
+      alert('同じ名前の担当者がすでにいます。');
+      return;
+    }
+    state.staff.push({ id: uid(), name: name });
+    input.value = '';
+    saveState();
+    renderStaffMaster();
+    renderStaffList();
+  });
+
   function renderMaster(){
     renderLocationList();
+    renderStaffMaster();
     renderItemTable();
   }
 
@@ -1491,25 +1570,15 @@
       return;
     }
 
-    var moveBtn = e.target.closest('[data-action="move-up"],[data-action="move-down"]');
-    if(moveBtn){
-      if(moveBtn.disabled) return;
-      var dir = moveBtn.dataset.action === 'move-up' ? -1 : 1;
-      var q = (document.getElementById('masterSearch').value || '').trim().toLowerCase();
-      var visible = state.items.filter(function(it){
-        if(!q) return true;
-        return (it.name || '').toLowerCase().indexOf(q) !== -1 ||
-               (it.code || '').toLowerCase().indexOf(q) !== -1 ||
-               (it.spec || '').toLowerCase().indexOf(q) !== -1;
-      });
-      var vi = visible.findIndex(function(it){ return it.id === moveBtn.dataset.id; });
-      var neighbor = visible[vi + dir];
-      if(vi !== -1 && neighbor){
-        var a = state.items.findIndex(function(it){ return it.id === moveBtn.dataset.id; });
-        var b = state.items.findIndex(function(it){ return it.id === neighbor.id; });
-        var tmp = state.items[a]; state.items[a] = state.items[b]; state.items[b] = tmp;
+    var delStaff = e.target.closest('[data-action="delete-staff"]');
+    if(delStaff){
+      var target = state.staff.find(function(x){ return x.id === delStaff.dataset.id; });
+      if(target && confirm('「' + target.name + '」を削除しますか？(過去の記録の担当者名は残ります)')){
+        state.staff = state.staff.filter(function(x){ return x.id !== target.id; });
+        if(state.draft.staff === target.name) state.draft.staff = '';
         saveState();
-        renderItemTable();
+        renderStaffMaster();
+        renderStaffList();
       }
       return;
     }
@@ -1563,6 +1632,111 @@
     }
   }, {passive:false});
 
+  /* ---------- Drag reorder (long press) ---------- */
+  (function(){
+    var table = document.getElementById('itemTable');
+    var HOLD_MS = 400, MOVE_TOL = 8;
+    var st = null;
+
+    function searchActive(){ return (document.getElementById('masterSearch').value || '').trim() !== ''; }
+    function cleanup(){
+      if(!st) return;
+      clearTimeout(st.timer);
+      if(st.raf) cancelAnimationFrame(st.raf);
+      if(st.row){ st.row.classList.remove('is-dragging'); st.row.style.transform = ''; }
+      if(st.line && st.line.parentNode) st.line.parentNode.removeChild(st.line);
+      st = null;
+    }
+    function activate(){
+      if(!st) return;
+      st.active = true;
+      var sy = window.scrollY;
+      st.rects = Array.prototype.map.call(table.querySelectorAll('.item-table-row'), function(r){
+        var b = r.getBoundingClientRect();
+        return { id: r.dataset.id, top: b.top + sy, bottom: b.bottom + sy };
+      });
+      st.startPageY = st.startY + sy;
+      st.row.classList.add('is-dragging');
+      st.line = document.createElement('div');
+      st.line.className = 'drop-line';
+      table.appendChild(st.line);
+      try{ st.row.setPointerCapture(st.pid); }catch(_){}
+      try{ if(navigator.vibrate) navigator.vibrate(15); }catch(_){}
+      update();
+      tick();
+    }
+    function update(){
+      if(!st || !st.active) return;
+      var sy = window.scrollY;
+      var dy = (st.lastY + sy) - st.startPageY;
+      st.row.style.transform = 'translateY(' + dy + 'px)';
+      var me = null, others = [];
+      st.rects.forEach(function(r){ if(r.id === st.id) me = r; else others.push(r); });
+      var center = (me.top + me.bottom) / 2 + dy;
+      var before = null;
+      for(var i = 0; i < others.length; i++){
+        if(center < (others[i].top + others[i].bottom) / 2){ before = others[i]; break; }
+      }
+      st.target = before ? before.id : null;
+      var tableTop = table.getBoundingClientRect().top + sy;
+      var y = before ? before.top - 3 : (others.length ? others[others.length - 1].bottom + 3 : me.bottom);
+      st.line.style.top = (y - tableTop) + 'px';
+    }
+    function tick(){
+      if(!st || !st.active) return;
+      var head = document.querySelector('.app-header');
+      var top = (head ? head.offsetHeight : 0) + 30;
+      var bottom = window.innerHeight - 50;
+      var v = 0;
+      if(st.lastY < top) v = -Math.min(18, (top - st.lastY) / 4 + 4);
+      else if(st.lastY > bottom) v = Math.min(18, (st.lastY - bottom) / 4 + 4);
+      if(v){ window.scrollBy(0, v); update(); }
+      st.raf = requestAnimationFrame(tick);
+    }
+
+    table.addEventListener('pointerdown', function(e){
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      var row = e.target.closest('.item-table-row');
+      if(!row || e.target.closest('button')) return;
+      if(searchActive()) return;
+      cleanup();
+      st = { row: row, id: row.dataset.id, pid: e.pointerId, startX: e.clientX, startY: e.clientY,
+             lastY: e.clientY, active: false, target: null };
+      st.timer = setTimeout(activate, HOLD_MS);
+    });
+    table.addEventListener('pointermove', function(e){
+      if(!st || e.pointerId !== st.pid) return;
+      if(!st.active){
+        if(Math.abs(e.clientX - st.startX) > MOVE_TOL || Math.abs(e.clientY - st.startY) > MOVE_TOL) cleanup();
+        return;
+      }
+      st.lastY = e.clientY;
+      e.preventDefault();
+      update();
+    });
+    function finish(e, commit){
+      if(!st || e.pointerId !== st.pid) return;
+      var did = st.active && commit;
+      var id = st.id, target = st.target;
+      cleanup();
+      if(!did) return;
+      var from = state.items.findIndex(function(it){ return it.id === id; });
+      if(from === -1) return;
+      var item = state.items.splice(from, 1)[0];
+      var to = target ? state.items.findIndex(function(it){ return it.id === target; }) : state.items.length;
+      if(to === -1) to = state.items.length;
+      state.items.splice(to, 0, item);
+      saveState();
+      renderItemTable();
+    }
+    table.addEventListener('pointerup', function(e){ finish(e, true); });
+    table.addEventListener('pointercancel', function(e){ finish(e, false); });
+    document.addEventListener('touchmove', function(e){
+      if(st && st.active && e.cancelable) e.preventDefault();
+    }, { passive: false });
+    table.addEventListener('contextmenu', function(e){ if(st) e.preventDefault(); });
+  })();
+
   /* ---------- Backup / Restore ---------- */
   document.getElementById('exportBtn').addEventListener('click', function(){
     var blob = new Blob([JSON.stringify(state)], {type:'application/json'});
@@ -1594,6 +1768,7 @@
         state.items = data.items;
         state.records = Array.isArray(data.records) ? data.records : [];
         state.staffHistory = Array.isArray(data.staffHistory) ? data.staffHistory : [];
+        state.staff = normalizeStaff(data);
         saveState();
         renderMaster();
         renderCheck();

@@ -28,10 +28,10 @@
     --danger-soft:#F8E4DE;
     --radius:10px;
     --radius-sm:6px;
-    --photo-w:96px;
-    --card-h:132px;
+    --photo-w:112px;
+    --card-h:150px;
   }
-  @media(min-width:700px){:root{--photo-w:112px;--card-h:144px;}}
+  @media(min-width:700px){:root{--photo-w:128px;--card-h:164px;}}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;overscroll-behavior-x:none;}
   input,textarea,select{overscroll-behavior-x:none;}
@@ -61,6 +61,12 @@
   .tab{border:none;background:transparent;color:rgba(255,255,255,.75);padding:6px 14px;border-radius:999px;font-size:13px;cursor:pointer;}
   .tab.is-active{background:#fff;color:var(--primary);font-weight:600;}
   .app-header__meta{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;}
+  .meta-summary{
+    display:none;align-items:center;gap:8px;width:100%;margin-top:8px;padding:6px 12px;
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;background:rgba(255,255,255,.1);
+    color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:left;
+  }
+  .meta-summary__edit{margin-left:auto;font-size:12px;font-weight:400;color:rgba(255,255,255,.75);}
   .field-inline{display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.85);}
   .field-inline input{
     border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.08);color:#fff;
@@ -99,8 +105,8 @@
     align-items:center;justify-content:center;gap:2px;text-align:center;
     animation:stackResultPop .2s ease-out both;
   }
-  .stack-card__result-val{font-size:34px;line-height:1.1;font-weight:800;font-variant-numeric:tabular-nums;}
-  .stack-card__result-state{font-size:16px;font-weight:700;}
+  .stack-card__result-val{font-size:38px;line-height:1.1;font-weight:800;font-variant-numeric:tabular-nums;}
+  .stack-card__result-state{font-size:18px;font-weight:700;}
   .stack-card__result.is-ok{background:var(--accent-soft);color:#245943;}
   .stack-card__result.is-order{background:var(--danger-soft);color:#7A2A1C;}
   .stack-card__result.is-check{background:var(--warn-soft);color:#7A5A12;}
@@ -117,11 +123,11 @@
   .stack-card__photo{width:var(--photo-w);height:var(--photo-w);flex-shrink:0;border-radius:8px;background:var(--surface-alt);overflow:hidden;}
   .stack-card__photo img{width:100%;height:100%;object-fit:contain;display:block;}
   .stack-card__body{flex:1;min-width:0;}
-  .stack-card__name{font-size:22px;line-height:1.25;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .stack-card__spec{font-size:15px;line-height:1.4;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .stack-card__target{font-size:17px;line-height:1.4;font-weight:600;color:var(--ink);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stack-card__name{font-size:25px;line-height:1.2;font-weight:700;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;word-break:break-all;}
+  .stack-card__spec{font-size:17px;line-height:1.4;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stack-card__target{font-size:20px;line-height:1.4;font-weight:600;color:var(--ink);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .stack-card__target .tag{font-size:12px;font-weight:600;vertical-align:middle;}
-  .stack-card__prev{font-size:16px;line-height:1.4;color:var(--ink-soft);margin-top:2px;}
+  .stack-card__prev{font-size:18px;line-height:1.4;color:var(--ink-soft);margin-top:2px;}
   .stack-empty{text-align:center;padding:34px 16px;color:var(--ink-soft);}
 
   /* Check list (list mode) */
@@ -184,21 +190,21 @@
   }
   .dock > *{pointer-events:auto;}
   .keypad{
-    display:grid;grid-template-columns:repeat(3,48px);gap:8px;
+    display:grid;grid-template-columns:repeat(3,52px);gap:9px;
     width:max-content;margin:0 12px 8px auto;padding:10px 12px;
     background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:30px;
     box-shadow:0 6px 22px rgba(30,42,39,.18);
   }
   .keypad__key{
-    width:48px;height:48px;border:none;border-radius:50%;padding:0;
-    background:var(--surface-alt);color:var(--primary);font-size:20px;font-weight:600;
+    width:52px;height:52px;border:none;border-radius:50%;padding:0;
+    background:var(--surface-alt);color:var(--primary);font-size:22px;font-weight:600;
     touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;cursor:pointer;
     transition:transform .08s ease,background .08s ease;
   }
   .keypad__key:active{background:var(--accent);color:#fff;transform:scale(.92);}
-  .keypad__key--sufficient{background:var(--primary);color:#fff;font-size:14px;}
+  .keypad__key--sufficient{background:var(--primary);color:#fff;font-size:15px;}
   .keypad__key--sufficient:active{background:var(--accent);}
-  .keypad__key--back{background:var(--warn-soft);color:#7A5A12;font-size:13px;}
+  .keypad__key--back{background:var(--warn-soft);color:#7A5A12;font-size:14px;}
   .sticky-bar{
     background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -2px 10px rgba(0,0,0,.05);
     padding:8px 14px calc(8px + env(safe-area-inset-bottom));display:flex;
@@ -305,7 +311,7 @@
 <body>
   <header class="app-header">
     <div class="app-header__top">
-      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v4.3</span></h1>
+      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v4.6</span></h1>
       <div class="tabs" role="tablist">
         <button class="tab is-active" role="tab" aria-selected="true" data-tab="check" type="button">チェック</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="master" type="button">マスタ管理</button>
@@ -316,6 +322,7 @@
       <label class="field-inline"><span>実施日</span><input type="date" id="checkDate" /></label>
       <label class="field-inline"><span>担当者</span><select id="checkStaff"></select></label>
     </div>
+    <button type="button" class="meta-summary" id="metaSummary" aria-label="実施日と担当者を変更する"></button>
   </header>
 
   <main>
@@ -405,7 +412,7 @@
 
   <div class="toast" id="toast" hidden aria-live="polite"></div>
 
-  <footer class="app-footer">物品チェック v4.3 ・ データは端末内(このブラウザ)に保存されます</footer>
+  <footer class="app-footer">物品チェック v4.6 ・ データは端末内(このブラウザ)に保存されます</footer>
 
 <script>
   var STORAGE_KEY = 'goodsCheck_v1';
@@ -671,7 +678,7 @@
     document.getElementById('view-check').hidden = tab !== 'check';
     document.getElementById('view-master').hidden = tab !== 'master';
     document.getElementById('view-history').hidden = tab !== 'history';
-    document.getElementById('checkMetaBar').style.display = tab === 'check' ? 'flex' : 'none';
+    updateMetaBar();
     document.getElementById('checkStickyBar').style.display = tab === 'check' ? 'block' : 'none';
     updateDockHeight();
     if(tab === 'check') renderCheck();
@@ -687,6 +694,7 @@
     document.getElementById('checkDate').value = state.draft.date || todayStr();
     document.getElementById('checkStaff').value = state.draft.staff || '';
     renderStaffList();
+    updateMetaBar();
     var mode = state.draft.checkMode || 'stack';
     document.getElementById('stackModeWrap').hidden = mode !== 'stack';
     document.getElementById('listModeWrap').hidden = mode !== 'list';
@@ -874,7 +882,7 @@
     setTimeout(function(){
       if(!node) return;
       node.classList.add('is-leaving');
-      node.style.transform = 'translateY(-210px) scale(1.03)';
+      node.style.transform = 'translateY(-230px) scale(1.03)';
       node.style.opacity = '0';
     }, 250);
     setTimeout(function(){
@@ -1108,13 +1116,42 @@
 
   document.getElementById('checkSearch').addEventListener('input', function(){ renderCheckListMode(); });
 
+  var metaOpen = false;
+  function formatMetaDate(d){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || '');
+    if(!m) return d || '';
+    var w = ['日','月','火','水','木','金','土'][new Date(+m[1], +m[2]-1, +m[3]).getDay()];
+    return m[2] + '/' + m[3] + '(' + w + ')';
+  }
+  // 担当者が選ばれていれば「実施日・担当者」を1行にたたむ。未選択のときは開いたまま
+  function updateMetaBar(){
+    var bar = document.getElementById('checkMetaBar');
+    var sum = document.getElementById('metaSummary');
+    if(currentTab !== 'check'){ bar.style.display = 'none'; sum.style.display = 'none'; return; }
+    var collapsed = !metaOpen && !!(state.draft.staff || '').trim();
+    bar.style.display = collapsed ? 'none' : 'flex';
+    sum.style.display = collapsed ? 'flex' : 'none';
+    if(collapsed){
+      sum.innerHTML = '<span>' + escapeHtml(formatMetaDate(state.draft.date)) + '</span><span>・</span><span>' +
+        escapeHtml(state.draft.staff) + '</span><span class="meta-summary__edit">変更 ✎</span>';
+    }
+  }
+  document.getElementById('metaSummary').addEventListener('click', function(){
+    metaOpen = true;
+    updateMetaBar();
+  });
   document.getElementById('checkDate').addEventListener('input', function(e){
     state.draft.date = e.target.value;
     saveState();
   });
+  document.getElementById('checkDate').addEventListener('change', function(){
+    if((state.draft.staff || '').trim()){ metaOpen = false; updateMetaBar(); }
+  });
   document.getElementById('checkStaff').addEventListener('change', function(e){
     state.draft.staff = e.target.value;
     saveState();
+    metaOpen = false;
+    updateMetaBar();
   });
 
   /* ---------- Order list ---------- */

@@ -57,6 +57,11 @@
     font-size:13px;font-weight:700;flex-shrink:0;
   }
   .app-version{font-size:11px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.2);color:#fff;letter-spacing:0;}
+  body[data-room="cath"]{--primary:#23466F;--primary-soft:#3A6697;--accent:#2F6FA8;--accent-soft:#E2EDF8;--bg:#F0F3F7;--surface-alt:#E6ECF3;--line:#D3DCE8;}
+  .app-title-wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .room-switch{display:flex;gap:2px;background:rgba(255,255,255,.16);padding:2px;border-radius:999px;}
+  .room-btn{border:none;background:transparent;color:rgba(255,255,255,.8);padding:4px 11px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .room-btn.is-active{background:#fff;color:var(--primary);}
   .tabs{display:flex;gap:4px;background:rgba(255,255,255,.12);padding:3px;border-radius:999px;}
   .tab{border:none;background:transparent;color:rgba(255,255,255,.75);padding:6px 14px;border-radius:999px;font-size:13px;cursor:pointer;}
   .tab.is-active{background:#fff;color:var(--primary);font-weight:600;}
@@ -311,7 +316,13 @@
 <body>
   <header class="app-header">
     <div class="app-header__top">
-      <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック<span class="app-version">v4.6</span></h1>
+      <div class="app-title-wrap">
+        <h1 class="app-title"><span class="app-title__mark">✓</span>物品チェック</h1>
+        <div class="room-switch" role="group" aria-label="管理先の切り替え">
+          <button type="button" class="room-btn is-active" data-room="me">ME室</button>
+          <button type="button" class="room-btn" data-room="cath">カテ室</button>
+        </div>
+      </div>
       <div class="tabs" role="tablist">
         <button class="tab is-active" role="tab" aria-selected="true" data-tab="check" type="button">チェック</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="master" type="button">マスタ管理</button>
@@ -368,7 +379,7 @@
       </div>
       <div class="master-block">
         <h2>データの引き継ぎ・バックアップ</h2>
-        <p class="backup-note">設置場所・物品・写真・履歴をまとめて1つのファイルに保存できます。別の端末や別のURLへ移すときに使います。</p>
+        <p class="backup-note">ME室・カテ室の設置場所・物品・担当者・写真・履歴をまとめて1つのファイルに保存できます。別の端末や別のURLへ移すときに使います。</p>
         <div class="backup-actions">
           <button type="button" id="exportBtn" class="btn btn--primary">データを書き出す</button>
           <button type="button" id="importBtn" class="btn btn--ghost">データを読み込む</button>
@@ -412,7 +423,7 @@
 
   <div class="toast" id="toast" hidden aria-live="polite"></div>
 
-  <footer class="app-footer">物品チェック v4.6 ・ データは端末内(このブラウザ)に保存されます</footer>
+  <footer class="app-footer">物品チェック v4.7 ・ データは端末内(このブラウザ)に保存されます</footer>
 
 <script>
   var STORAGE_KEY = 'goodsCheck_v1';
@@ -516,7 +527,9 @@
     }
   }
 
-  var state = defaultState();
+  var ROOMS = { me:'ME室', cath:'カテ室' };
+  var store = { meta:{version:'4.7'}, currentRoom:'me', rooms:{ me:defaultState(), cath:defaultState() } };
+  var state = store.rooms.me;
   var storageReady = false;
   var useIdb = true;
   var idbDb = null;
@@ -584,11 +597,11 @@
   function saveState(){
     if(!storageReady) return;
     if(useIdb && idbDb){
-      idbPut(idbDb, 'state', state).catch(reportSaveError);
+      idbPut(idbDb, 'state', store).catch(reportSaveError);
       return;
     }
     try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
     }catch(e){
       reportSaveError(e);
     }
@@ -616,10 +629,26 @@
       useIdb = false;
       return readLocal();
     }).then(function(saved){
-      state = normalizeState(saved);
+      var needSave = false;
+      if(saved && saved.rooms && typeof saved.rooms === 'object'){
+        store = {
+          meta:{version:'4.7'},
+          currentRoom: ROOMS[saved.currentRoom] ? saved.currentRoom : 'me',
+          rooms:{ me: normalizeState(saved.rooms.me), cath: normalizeState(saved.rooms.cath) }
+        };
+      } else {
+        // 旧形式(1管理先のみ)→ ME室へ移行。カテ室は空から開始
+        store = { meta:{version:'4.7'}, currentRoom:'me', rooms:{ me: normalizeState(saved), cath: defaultState() } };
+        needSave = true;
+      }
+      var q = '';
+      try{ q = new URLSearchParams(location.search).get('room') || ''; }catch(e){}
+      if(ROOMS[q] && q !== store.currentRoom){ store.currentRoom = q; needSave = true; }
+      state = store.rooms[store.currentRoom];
       storageReady = true;
       checkDayReset();
-      if(dayResetHappened || migrated || !saved || !(saved && Array.isArray(saved.staff))) saveState();
+      applyRoomUI();
+      if(needSave || dayResetHappened || migrated || !saved || !Array.isArray(state.staff)) saveState();
       setTab('check');
       if(dayResetHappened) showToast('日付が変わったため入力内容をリセットしました');
       try{
@@ -627,6 +656,42 @@
       }catch(e){}
     });
   }
+
+  function applyRoomUI(){
+    var r = store.currentRoom;
+    document.body.setAttribute('data-room', r);
+    document.querySelectorAll('.room-btn').forEach(function(b){
+      var on = b.dataset.room === r;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var title = '物品チェック(' + ROOMS[r] + ')';
+    document.title = title;
+    var m = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if(m) m.setAttribute('content', title);
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if(tc) tc.setAttribute('content', r === 'cath' ? '#23466F' : '#2C4A47');
+  }
+  function switchRoom(room){
+    if(!ROOMS[room] || room === store.currentRoom || !storageReady) return;
+    store.currentRoom = room;
+    state = store.rooms[room];
+    dayResetHappened = false;
+    checkDayReset();
+    activeEntryId = null;
+    answerHistory = [];
+    metaOpen = false;
+    document.getElementById('checkSearch').value = '';
+    document.getElementById('masterSearch').value = '';
+    applyRoomUI();
+    saveState();
+    setTab(currentTab);
+    window.scrollTo(0, 0);
+    showToast(ROOMS[room] + 'に切り替えました' + (dayResetHappened ? '(日付が変わったため入力内容をリセット)' : ''));
+  }
+  document.querySelectorAll('.room-btn').forEach(function(b){
+    b.addEventListener('click', function(){ switchRoom(b.dataset.room); });
+  });
 
   function getLocationName(locId){
     if(locId === '__none__') return '未分類';
@@ -1776,7 +1841,7 @@
 
   /* ---------- Backup / Restore ---------- */
   document.getElementById('exportBtn').addEventListener('click', function(){
-    var blob = new Blob([JSON.stringify(state)], {type:'application/json'});
+    var blob = new Blob([JSON.stringify(store)], {type:'application/json'});
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
@@ -1785,7 +1850,7 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
-    showToast('書き出しました(' + state.items.length + '品目)');
+    showToast('書き出しました(ME室 ' + store.rooms.me.items.length + '品目 / カテ室 ' + store.rooms.cath.items.length + '品目)');
   });
   document.getElementById('importBtn').addEventListener('click', function(){
     document.getElementById('importFile').click();
@@ -1798,8 +1863,21 @@
     reader.onload = function(){
       try{
         var data = JSON.parse(reader.result);
+        if(data && data.rooms && typeof data.rooms === 'object'){
+          var nm = normalizeState(data.rooms.me), nc = normalizeState(data.rooms.cath);
+          var m2 = '現在のデータをすべて上書きして読み込みますか？\nME室: 物品 ' + nm.items.length + '件 / 記録 ' + nm.records.length + '件\nカテ室: 物品 ' + nc.items.length + '件 / 記録 ' + nc.records.length + '件';
+          if(!confirm(m2)){ input.value = ''; return; }
+          store.rooms.me = nm; store.rooms.cath = nc;
+          state = store.rooms[store.currentRoom];
+          checkDayReset();
+          saveState();
+          setTab(currentTab);
+          showToast('読み込みました(ME室・カテ室)');
+          input.value = '';
+          return;
+        }
         if(!data || !Array.isArray(data.items) || !Array.isArray(data.locations)) throw new Error('形式が違います');
-        var msg = '現在のデータを上書きして読み込みますか？\n設置場所 ' + data.locations.length + '件 / 物品 ' + data.items.length + '件 / 記録 ' + (Array.isArray(data.records) ? data.records.length : 0) + '件';
+        var msg = '【' + ROOMS[store.currentRoom] + '】の現在のデータを上書きして読み込みますか？\n設置場所 ' + data.locations.length + '件 / 物品 ' + data.items.length + '件 / 記録 ' + (Array.isArray(data.records) ? data.records.length : 0) + '件';
         if(!confirm(msg)){ input.value = ''; return; }
         state.locations = data.locations;
         state.items = data.items;

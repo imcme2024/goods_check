@@ -114,9 +114,11 @@
   .stack-card__result-state{font-size:18px;font-weight:700;}
   .stack-card__result.is-ok{background:var(--accent-soft);color:#245943;}
   .stack-card__result.is-order{background:var(--danger-soft);color:#7A2A1C;}
+  .stack-card__result.is-urgent{background:var(--danger);color:#fff;}
   .stack-card__result.is-check{background:var(--warn-soft);color:#7A5A12;}
   .stack-card__inner.res-ok{border-left-color:var(--accent);}
   .stack-card__inner.res-order{border-left-color:var(--danger);}
+  .stack-card__inner.res-urgent{border-left-color:var(--danger);}
   .stack-card__inner.res-check{border-left-color:var(--warn);}
   @keyframes stackResultPop{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
   .stack-card__inner{
@@ -154,6 +156,7 @@
   }
   .item-row.is-ok{border-left-color:var(--accent);}
   .item-row.is-order{border-left-color:var(--danger);}
+  .item-row.is-urgent{border-left-color:var(--danger);}
   .item-row.is-check{border-left-color:var(--warn);}
 
   .item-row__photo{width:36px;height:36px;border-radius:6px;background:var(--surface-alt);flex-shrink:0;overflow:hidden;}
@@ -179,6 +182,7 @@
   .item-row__status-wrap{width:70px;flex-shrink:0;text-align:right;}
   .item-row__status{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;}
   .item-row__status.is-order{background:var(--danger-soft);color:#7A2A1C;}
+  .item-row__status.is-urgent{background:var(--danger);color:#fff;}
   .item-row__status.is-check{background:var(--warn-soft);color:#7A5A12;}
   .item-row__status.is-ok{background:var(--accent-soft);color:#245943;}
 
@@ -247,6 +251,9 @@
   .inline-form button{padding:8px 14px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;font-weight:600;cursor:pointer;}
 
   .item-table{display:flex;flex-direction:column;gap:6px;position:relative;}
+  .form-section{font-size:13px;font-weight:700;color:var(--primary);border-bottom:2px solid var(--line);margin:18px 0 8px;padding-bottom:3px;}
+  .form-section:first-of-type{margin-top:0;}
+  .unit-fixed{font-size:15px;font-weight:600;color:var(--ink);padding:0 10px;white-space:nowrap;}
   .master-hint{font-size:12px;color:var(--ink-soft);margin:-4px 0 10px;}
   .item-table-row{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
   .item-table-row.is-dragging{
@@ -377,6 +384,11 @@
         <div id="itemTable" class="item-table"></div>
       </div>
       <div class="master-block">
+        <h2>SPD管理品の緊急判定</h2>
+        <p class="backup-note">確認用の数 × 係数 以下になったら「緊急(臨時発注を)」と表示します。例: 確認用10個・係数0.5 → 5個以下で緊急。</p>
+        <select id="urgentRatioSel" class="search-row" style="max-width:260px;"></select>
+      </div>
+      <div class="master-block">
         <h2>データの引き継ぎ・バックアップ</h2>
         <p class="backup-note">ME室・カテ室の設置場所・物品・担当者・写真・履歴をまとめて1つのファイルに保存できます。別の端末や別のURLへ移すときに使います。</p>
         <div class="backup-actions">
@@ -423,7 +435,7 @@
 
   <div class="toast" id="toast" hidden aria-live="polite"></div>
 
-  <footer class="app-footer">物品チェック v4.8 ・ データは端末内(このブラウザ)に保存されます</footer>
+  <footer class="app-footer">物品チェック v5.4 ・ データは端末内(このブラウザ)に保存されます</footer>
 
 <script>
   var STORAGE_KEY = 'goodsCheck_v1';
@@ -452,6 +464,7 @@
   function statusClass(state){
     if(state === 'order') return 'is-order';
     if(state === 'check') return 'is-check';
+    if(state === 'urgent') return 'is-urgent';
     if(state === 'ok' || state === 'sufficient') return 'is-ok';
     return '';
   }
@@ -483,6 +496,7 @@
       records:[],
       staffHistory:[],
       staff:[],
+      settings:{urgentRatio:0.5},
       draft:{date:todayStr(), staff:'', entries:{}, checkMode:'stack'}
     };
   }
@@ -507,6 +521,11 @@
     return out;
   }
 
+  function normalizeSettings(x){
+    var r = (x && typeof x.urgentRatio === 'number' && x.urgentRatio >= 0 && x.urgentRatio < 1) ? x.urgentRatio : 0.5;
+    return { urgentRatio: r };
+  }
+
   function normalizeState(parsed){
     try{
       if(!parsed) return defaultState();
@@ -519,6 +538,7 @@
         records: Array.isArray(parsed.records) ? parsed.records : [],
         staffHistory: Array.isArray(parsed.staffHistory) ? parsed.staffHistory : [],
         staff: normalizeStaff(parsed),
+        settings: normalizeSettings(parsed.settings),
         draft: draft
       });
     }catch(e){
@@ -528,7 +548,7 @@
   }
 
   var ROOMS = { me:'ME室', cath:'カテ室' };
-  var store = { meta:{version:'4.7'}, currentRoom:'me', rooms:{ me:defaultState(), cath:defaultState() } };
+  var store = { meta:{version:'5.4'}, currentRoom:'me', rooms:{ me:defaultState(), cath:defaultState() } };
   var state = store.rooms.me;
   var storageReady = false;
   var useIdb = true;
@@ -632,13 +652,13 @@
       var needSave = false;
       if(saved && saved.rooms && typeof saved.rooms === 'object'){
         store = {
-          meta:{version:'4.7'},
+          meta:{version:'5.4'},
           currentRoom: ROOMS[saved.currentRoom] ? saved.currentRoom : 'me',
           rooms:{ me: normalizeState(saved.rooms.me), cath: normalizeState(saved.rooms.cath) }
         };
       } else {
         // 旧形式(1管理先のみ)→ ME室へ移行。カテ室は空から開始
-        store = { meta:{version:'4.7'}, currentRoom:'me', rooms:{ me: normalizeState(saved), cath: defaultState() } };
+        store = { meta:{version:'5.4'}, currentRoom:'me', rooms:{ me: normalizeState(saved), cath: defaultState() } };
         needSave = true;
       }
       var q = '';
@@ -703,25 +723,54 @@
     if(state.records.length === 0) return undefined;
     return state.records[0].entries[itemId];
   }
+  // SPD管理品は「十分」ではなく「箱あり(未開封の箱がある)」として扱う
+  function sufficientLabel(item){ return (item && item.category === 'spd') ? '箱あり' : '十分'; }
+  var UNIT_OPTIONS = ['個','箱','本','袋','枚','セット'];
+  // 物品の「数える単位」(個・本・袋など)。旧データは単位が箱なら個とみなす
+  function baseUnitOf(item){ return item.baseUnit || ((item.unit || '個') === '箱' ? '個' : (item.unit || '個')); }
+  function contUnit(item){ return baseUnitOf(item); }
+  function perBoxOf(item){ var n = Number(item.perBox) || 0; return n > 0 ? n : 0; }
+  // 例: 「10個入/箱」(入数が未登録なら空)
+  function boxInfo(item){ var n = perBoxOf(item); return n ? (n + contUnit(item) + '入/箱') : ''; }
+  // SPD定数の表示。入数があるときは箱数として扱う
+  var SPD_UNIT_OPTIONS = ['箱','個','本','袋','枚','セット'];
+  // SPD側の単位。'' = ME室の単位と同じ。未設定(v5.0以前)は、入数があれば箱とみなす
+  function spdUnitOf(item){
+    if(typeof item.spdUnit === 'string') return item.spdUnit;
+    return perBoxOf(item) ? '箱' : '';
+  }
+  function spdSysText(item){
+    var q = item.spdSystemQty || 0, n = perBoxOf(item), u = spdUnitOf(item) || (item.unit || '');
+    if(u === '箱' && n) return q + '箱(' + n + contUnit(item) + '入)';
+    return q + u;
+  }
+  function urgentQty(item){
+    var r = state.settings ? state.settings.urgentRatio : 0.5;
+    var th = Number(item.spdCheckQty) || 0;
+    if(!(r > 0) || th <= 0) return 0;
+    return Math.floor(th * r + 1e-9);
+  }
   function prevText(item){
     var v = getLastRecordedValue(item.id);
     if(v === undefined) return '';
-    if(v === 'SUFFICIENT') return '前回:十分';
+    if(v === 'SUFFICIENT') return '前回:' + sufficientLabel(item);
     return '前回:' + v + (item.unit || '');
   }
   function valueText(item, qtyRaw){
     if(qtyRaw === undefined || qtyRaw === '') return '';
-    if(qtyRaw === 'SUFFICIENT') return '十分';
+    if(qtyRaw === 'SUFFICIENT') return sufficientLabel(item);
     return qtyRaw + (item.unit || '');
   }
 
   function itemStatus(item, qtyRaw){
     if(qtyRaw === '' || qtyRaw === undefined || qtyRaw === null) return {state:'empty'};
-    if(qtyRaw === 'SUFFICIENT') return {state:'sufficient', label:'十分'};
+    if(qtyRaw === 'SUFFICIENT') return {state:'sufficient', label:sufficientLabel(item)};
     var qty = Number(qtyRaw);
     if(Number.isNaN(qty)) return {state:'empty'};
     if(item.category === 'spd'){
       var threshold = Number(item.spdCheckQty) || 0;
+      var urg = urgentQty(item);
+      if(urg > 0 && qty <= urg) return {state:'urgent', label:'緊急'};
       if(qty < threshold) return {state:'check', label:'要確認'};
       return {state:'ok', label:'✓'};
     } else {
@@ -795,7 +844,17 @@
     sel.value = cur;
   }
 
+  function updateKeypadLabel(){
+    var id = null;
+    if(state.draft.checkMode === 'list') id = activeEntryId;
+    else id = currentStackQueueIds[0];
+    var it = id ? state.items.find(function(x){ return x.id === id; }) : null;
+    var key = document.querySelector('.keypad__key--sufficient');
+    if(key) key.textContent = sufficientLabel(it);
+  }
+
   function updateProgress(){
+    updateKeypadLabel();
     var total = state.items.length;
     var filled = state.items.filter(function(it){
       var v = state.draft.entries[it.id];
@@ -835,9 +894,10 @@
     outer.className = 'stack-card';
     var targetHtml;
     if(item.category === 'spd'){
-      targetHtml = '確認用 ' + (item.spdCheckQty||0) + escapeHtml(item.unit||'') + ' ／SPD定数 ' + (item.spdSystemQty||0) + escapeHtml(item.unit||'');
+      targetHtml = '確認用 ' + (item.spdCheckQty||0) + escapeHtml(item.unit||'') + ' ／SPD定数 ' + escapeHtml(spdSysText(item));
     } else {
       targetHtml = '定数 ' + (item.standardQty||0) + escapeHtml(item.unit||'');
+      if(boxInfo(item)) targetHtml += ' <span class="tag">' + escapeHtml(boxInfo(item)) + '</span>';
     }
     if(item.category === 'spd') targetHtml = '<span class="tag tag--spd" style="margin-right:4px;">SPD管理</span>' + targetHtml;
     if(item.note) targetHtml += ' <span class="tag tag--note">' + escapeHtml(item.note) + '</span>';
@@ -915,7 +975,7 @@
     var st = itemStatus(item, value);
     var cls = statusClass(st.state) || 'is-ok';
     var val = valueText(item, value);
-    var stateText = st.state === 'order' ? st.label : (st.state === 'check' ? '要確認' : 'OK ✓');
+    var stateText = st.state === 'order' ? st.label : (st.state === 'urgent' ? '緊急' : (st.state === 'check' ? '要確認' : 'OK ✓'));
     var res = document.createElement('div');
     res.className = 'stack-card__result ' + cls;
     res.innerHTML = '<span class="stack-card__result-val">' + escapeHtml(val) + '</span>' +
@@ -970,8 +1030,8 @@
     var stdValue = item.category === 'spd' ? (item.spdCheckQty || 0) : (item.standardQty || 0);
     var tags = [];
     if(item.category === 'spd') tags.push('<span class="tag tag--spd">SPD管理</span>');
-    if(item.category === 'spd') tags.push('<span class="tag">SPD定数 ' + (item.spdSystemQty||0) + '</span>');
-    if(item.shelf) tags.push('<span class="tag">棚 ' + escapeHtml(item.shelf) + '</span>');
+    if(item.category === 'spd') tags.push('<span class="tag">SPD定数 ' + escapeHtml(spdSysText(item)) + '</span>');
+    else if(boxInfo(item)) tags.push('<span class="tag">' + escapeHtml(boxInfo(item)) + '</span>');
     if(item.note) tags.push('<span class="tag tag--note">' + escapeHtml(item.note) + '</span>');
     var statusHtml = '';
     if(status.state !== 'empty'){
@@ -1053,7 +1113,7 @@
     if(!row) return;
     var qtyRaw = state.draft.entries[itemId];
     var status = itemStatus(item, qtyRaw);
-    row.classList.remove('is-ok','is-order','is-check');
+    row.classList.remove('is-ok','is-order','is-check','is-urgent');
     var cls = statusClass(status.state);
     if(cls) row.classList.add(cls);
     var statusWrap = row.querySelector('.item-row__status-wrap');
@@ -1091,6 +1151,7 @@
   }
   function setActiveEntry(id, scroll){
     activeEntryId = id;
+    updateKeypadLabel();
     document.querySelectorAll('.item-row.is-active').forEach(function(r){ r.classList.remove('is-active'); });
     var row = document.querySelector('.item-row[data-item-id="' + id + '"]');
     if(row){
@@ -1229,12 +1290,14 @@
       var status = itemStatus(item, String(qty));
       var locName = getLocationName(item.locationId || '__none__');
       if(item.category === 'spd'){
-        if(status.state === 'check'){
-          checkNeeded.push(locName + ' / ' + item.name + (item.spec ? '(' + item.spec + ')' : '') + '  実数' + qty + ' < 確認用' + item.spdCheckQty + '(SPD定数' + (item.spdSystemQty||0) + ')');
+        if(status.state === 'urgent'){
+          checkNeeded.unshift('【緊急・臨時発注を】' + locName + ' / ' + item.name + (item.spec ? '(' + item.spec + ')' : '') + '  実数' + qty + '(緊急' + urgentQty(item) + '以下)');
+        } else if(status.state === 'check'){
+          checkNeeded.push(locName + ' / ' + item.name + (item.spec ? '(' + item.spec + ')' : '') + '  実数' + qty + ' < 確認用' + item.spdCheckQty + '(SPD発注の有無を確認)');
         }
       } else if(status.state === 'order'){
         if(!byLoc[locName]) byLoc[locName] = [];
-        byLoc[locName].push(item.name + (item.spec ? '(' + item.spec + ')' : '') + '  発注 ' + status.orderQty + (item.unit || ''));
+        byLoc[locName].push(item.name + (item.spec ? '(' + item.spec + ')' : '') + '  発注 ' + status.orderQty + (item.unit || '') + (perBoxOf(item) && item.unit !== '箱' ? '(' + Math.ceil(status.orderQty / perBoxOf(item)) + '箱)' : ''));
       }
     });
     var text = '【発注リスト】' + dateLabel + '\n';
@@ -1375,17 +1438,16 @@
     el.innerHTML = items.map(function(it, idx){
       var locName = getLocationName(it.locationId || '__none__');
       var qtyLabel = it.category === 'spd'
-        ? ('確認用定数 ' + (it.spdCheckQty || 0) + ' ／SPD定数 ' + (it.spdSystemQty || 0))
-        : ('定数 ' + (it.standardQty || 0));
+        ? ('確認用定数 ' + (it.spdCheckQty || 0) + escapeHtml(it.unit || '') + ' ／SPD定数 ' + escapeHtml(spdSysText(it)))
+        : ('定数 ' + (it.standardQty || 0) + escapeHtml(it.unit || '') + (boxInfo(it) ? ' ／ ' + escapeHtml(boxInfo(it)) : ''));
       var photoHtml = it.photo ? '<img src="' + it.photo + '" alt="">' : '';
       return '<div class="item-table-row" data-id="' + it.id + '">' +
         '<div class="item-table-row__photo">' + photoHtml + '</div>' +
         '<div class="item-table-row__main">' +
           '<div class="item-table-row__name">' + escapeHtml(it.name) + (it.category === 'spd' ? ' <span class="tag tag--spd">SPD管理</span>' : '') + '</div>' +
           '<div class="item-table-row__sub">' + escapeHtml(locName) +
-            (it.shelf ? ' ／ 棚' + escapeHtml(it.shelf) : '') +
             (it.code ? ' ／ ' + escapeHtml(it.code) : '') +
-            ' ／ ' + qtyLabel + escapeHtml(it.unit || '') + '</div>' +
+            ' ／ ' + qtyLabel + '</div>' +
         '</div>' +
         '<div class="item-table-row__actions">' +
           '<button type="button" class="icon-btn" data-action="edit-item" data-id="' + it.id + '">編集</button>' +
@@ -1404,18 +1466,38 @@
     }
     var defaultLoc = state.locations.find(function(l){ return (l.name || '').indexOf('第一') === 0; }) || state.locations[0];
     var item = editing ? state.items.find(function(it){ return it.id === itemId; }) : {
-      id:null, locationId: defaultLoc.id, shelf:'', code:'', name:'', spec:'',
-      unit:'個', category:'normal', standardQty:0, spdSystemQty:0, spdCheckQty:0, note:'', photo:''
+      id:null, locationId: defaultLoc.id, code:'', name:'', spec:'',
+      unit:'個', baseUnit:'個', perBox:0, category:'normal', standardQty:0, spdSystemQty:0, spdCheckQty:0, spdUnit:'', note:'', photo:''
     };
     var pendingPhoto = item.photo || null;
     var locOptions = state.locations.map(function(l){
       return '<option value="' + l.id + '"' + (l.id === item.locationId ? ' selected' : '') + '>' + escapeHtml(l.name) + '</option>';
     }).join('');
     var isSpd = item.category === 'spd';
+    var curBase = baseUnitOf(item);
+    var meWasBox = (item.unit || '') === '箱';
+    var spdU = spdUnitOf(item);                 // '' = ME室と同じ
+    var spdWasBox = spdU === '箱' || (spdU === '' && meWasBox);
+    var boxMode0 = perBoxOf(item) > 0 || meWasBox || spdWasBox;
+    var PLAIN_UNITS = UNIT_OPTIONS.filter(function(u){ return u !== '箱'; });   // 個 本 袋 枚 セット
+    var plainInList = PLAIN_UNITS.indexOf(curBase) !== -1;
+    // 物品情報の「単位」: 個・本・袋・枚・セット・箱・その他
+    var pkgInit = boxMode0 ? '箱' : (plainInList ? curBase : '__other__');
+    var pkgOptHtml = PLAIN_UNITS.concat(['箱']).map(function(u){
+      return '<option value="' + u + '"' + (u === pkgInit ? ' selected' : '') + '>' + u + '</option>';
+    }).join('') + '<option value="__other__"' + (pkgInit === '__other__' ? ' selected' : '') + '>その他</option>';
+    // 箱の中身の単位
+    var contOpts = PLAIN_UNITS.slice();
+    if(contOpts.indexOf(curBase) === -1) contOpts.push(curBase);
+    var contOptHtml = contOpts.map(function(u){
+      return '<option value="' + escapeHtml(u) + '"' + (u === curBase ? ' selected' : '') + '>' + escapeHtml(u) + '</option>';
+    }).join('');
+    var selStyle = 'width:auto;min-width:96px;flex:0 0 auto;';
 
     openModal(
       '<h3>' + (editing ? '物品を編集' : '物品を追加') + '</h3>' +
       '<form id="itemForm">' +
+        '<div class="form-section">物品情報</div>' +
         '<div class="form-row"><label>写真</label><div class="photo-field">' +
           '<div class="photo-preview" id="photoPreview">' + (item.photo ? '<img src="' + item.photo + '" alt="">' : '') + '</div>' +
           '<div class="photo-field__controls">' +
@@ -1426,23 +1508,36 @@
         '<div class="form-row"><label>設置場所</label><select name="locationId">' + locOptions + '</select></div>' +
         '<div class="form-row"><label>物品名</label><input type="text" name="name" value="' + escapeHtml(item.name) + '" required /></div>' +
         '<div class="form-row"><label>規格</label><input type="text" name="spec" value="' + escapeHtml(item.spec) + '" /></div>' +
-        '<div class="form-row"><label>棚</label><input type="text" name="shelf" value="' + escapeHtml(item.shelf) + '" placeholder="番号 または 定数外 等" /></div>' +
         '<div class="form-row"><label>物品コード</label><input type="text" name="code" value="' + escapeHtml(item.code) + '" /></div>' +
-        '<div class="form-row"><label>単位</label><input type="text" name="unit" value="' + escapeHtml(item.unit || '個') + '" /></div>' +
-        '<div class="form-row"><label>区分</label><div class="radio-group">' +
+        '<div class="form-row"><label>管理方法</label><div class="radio-group">' +
           '<label><input type="radio" name="category" value="normal"' + (!isSpd ? ' checked' : '') + '> 通常品</label>' +
           '<label><input type="radio" name="category" value="spd"' + (isSpd ? ' checked' : '') + '> SPD管理品</label>' +
         '</div></div>' +
-        '<div class="form-row" id="normalQtyRow" style="' + (isSpd ? 'display:none;' : '') + '">' +
-          '<label>定数</label><input type="number" name="standardQty" min="0" value="' + (item.standardQty || 0) + '" />' +
-        '</div>' +
-        '<div class="form-row" id="spdQtyRow" style="' + (isSpd ? '' : 'display:none;') + '">' +
-          '<label>SPD側の定数(参考表示のみ)</label><input type="number" name="spdSystemQty" min="0" value="' + (item.spdSystemQty || 0) + '" />' +
-        '</div>' +
-        '<div class="form-row" id="spdCheckQtyRow" style="' + (isSpd ? '' : 'display:none;') + '">' +
-          '<label>ME室 現物確認用の定数</label><input type="number" name="spdCheckQty" min="0" value="' + (item.spdCheckQty || 0) + '" />' +
-        '</div>' +
+        '<div class="form-row"><label>単位</label><div style="display:flex;gap:8px;">' +
+          '<select id="pkgSel" style="' + selStyle + '">' + pkgOptHtml + '</select>' +
+          '<input type="text" id="baseOther" placeholder="単位を入力(例: 台、巻)" value="' + escapeHtml(pkgInit === '__other__' ? curBase : '') + '" style="' + (pkgInit === '__other__' ? '' : 'display:none;') + 'flex:1;min-width:0;" />' +
+        '</div></div>' +
+        '<div class="form-row" id="perBoxRow" style="' + (boxMode0 ? '' : 'display:none;') + '"><label>1箱の入数</label><div style="display:flex;gap:8px;">' +
+          '<input type="number" name="perBox" id="perBoxInput" min="0" value="' + (perBoxOf(item) || '') + '" placeholder="例: 10" style="flex:1;min-width:0;" />' +
+          '<select id="contSel" style="' + selStyle + '">' + contOptHtml + '</select>' +
+        '</div></div>' +
         '<div class="form-row"><label>備考</label><input type="text" name="note" value="' + escapeHtml(item.note) + '" placeholder="期限確認 など" /></div>' +
+
+        '<div class="form-section">ME室の定数</div>' +
+        '<div class="form-row"><label id="meLabel"></label><div style="display:flex;gap:8px;align-items:center;">' +
+          '<input type="number" name="standardQty" id="stdInput" min="0" value="' + (item.standardQty || 0) + '" style="flex:1;min-width:0;' + (isSpd ? 'display:none;' : '') + '" />' +
+          '<input type="number" name="spdCheckQty" id="chkInput" min="0" value="' + (item.spdCheckQty || 0) + '" style="flex:1;min-width:0;' + (isSpd ? '' : 'display:none;') + '" />' +
+          '<select id="meUnitSel" style="' + selStyle + '"></select><span id="meUnitFixed" class="unit-fixed"></span>' +
+        '</div><div class="master-hint" id="meHint" style="margin-top:4px;"></div></div>' +
+
+        '<div id="spdSection" style="' + (isSpd ? '' : 'display:none;') + '">' +
+          '<div class="form-section">SPDの定数</div>' +
+          '<div class="form-row"><label>SPDが補充する数(SPD定数・参考表示)</label><div style="display:flex;gap:8px;align-items:center;">' +
+            '<input type="number" name="spdSystemQty" id="spdSysInput" min="0" value="' + (item.spdSystemQty || 0) + '" style="flex:1;min-width:0;" />' +
+            '<select id="spdUnitSel" style="' + selStyle + '"></select><span id="spdUnitFixed" class="unit-fixed"></span>' +
+          '</div><div class="master-hint" id="spdHint" style="margin-top:4px;"></div></div>' +
+        '</div>' +
+
         '<div class="modal-actions">' +
           '<button type="button" class="btn btn--ghost" data-action="close-modal">キャンセル</button>' +
           '<button type="submit" class="btn btn--primary">保存</button>' +
@@ -1474,37 +1569,125 @@
       photoInput.value = '';
     });
 
-    var normalQtyRow = document.getElementById('normalQtyRow');
-    var spdQtyRow = document.getElementById('spdQtyRow');
-    var spdCheckQtyRow = document.getElementById('spdCheckQtyRow');
+    var pkgSel = document.getElementById('pkgSel');
+    var baseOther = document.getElementById('baseOther');
+    var perBoxRow = document.getElementById('perBoxRow');
+    var perBoxInput = document.getElementById('perBoxInput');
+    var contSel = document.getElementById('contSel');
+    var meUnitSel = document.getElementById('meUnitSel');
+    var spdUnitSel = document.getElementById('spdUnitSel');
+    var meUnitFixed = document.getElementById('meUnitFixed');
+    var spdUnitFixed = document.getElementById('spdUnitFixed');
+    var stdInput = document.getElementById('stdInput');
+    var chkInput = document.getElementById('chkInput');
+    var spdSysInput = document.getElementById('spdSysInput');
+    var meLabel = document.getElementById('meLabel');
+    var meHint = document.getElementById('meHint');
+    var spdHint = document.getElementById('spdHint');
+    var spdSection = document.getElementById('spdSection');
+
+    function boxMode(){ return pkgSel.value === '箱'; }
+    // 数える単位(箱モードなら箱の中身の単位)
+    function baseVal(){
+      if(boxMode()) return contSel.value || '個';
+      return pkgSel.value === '__other__' ? ((baseOther.value || '').trim() || '個') : pkgSel.value;
+    }
+    function perBoxVal(){ return boxMode() ? Math.max(0, Math.floor(Number(perBoxInput.value) || 0)) : 0; }
+    function isBox(sel){ return boxMode() && sel.value === 'box'; }
+    function fillUnitSelect(sel, fixedEl, wantBox){
+      var base = baseVal();
+      if(boxMode()){
+        sel.innerHTML = '<option value="box">箱</option><option value="base">' + escapeHtml(base) + '</option>';
+        sel.value = wantBox ? 'box' : 'base';
+        sel.style.display = '';
+        fixedEl.style.display = 'none';
+      } else {
+        sel.innerHTML = '<option value="base">' + escapeHtml(base) + '</option>';
+        sel.value = 'base';
+        sel.style.display = 'none';
+        fixedEl.textContent = base;
+        fixedEl.style.display = '';
+      }
+    }
+    function refreshUnits(){
+      fillUnitSelect(meUnitSel, meUnitFixed, isBox(meUnitSel) || (boxMode() && meUnitSel.dataset.init !== '1'));
+      fillUnitSelect(spdUnitSel, spdUnitFixed, isBox(spdUnitSel) || (boxMode() && spdUnitSel.dataset.init !== '1'));
+      meUnitSel.dataset.init = '1'; spdUnitSel.dataset.init = '1';
+      refreshHints();
+    }
+    function refreshHints(){
+      var spdSel = form.category.value === 'spd';
+      perBoxRow.style.display = boxMode() ? '' : 'none';
+      var base = baseVal(), n = perBoxVal();
+      meLabel.textContent = spdSel ? 'ME室の確認用の数(これを下回ると「要確認」)' : 'ME室の定数(これを下回ると「発注」)';
+      var meQty = Number(spdSel ? chkInput.value : stdInput.value) || 0;
+      meHint.textContent = (isBox(meUnitSel) && n > 0 && meQty > 0) ? ('= ' + (meQty * n) + base + '(チェックは箱数で入力します)') : '';
+      var q = Number(spdSysInput.value) || 0;
+      var t = [];
+      if(isBox(spdUnitSel) && n > 0 && q > 0){
+        t.push('SPD定数 ' + q + '箱 = ' + (q * n) + base);
+        t.push('ME室の最大在庫の目安: 約' + ((q + 1) * n - 1) + base);
+      }
+      spdHint.textContent = t.join(' ／ ');
+    }
+    // 初期化(旧データの単位を引き継ぐ)
+    fillUnitSelect(meUnitSel, meUnitFixed, boxMode() && meWasBox);
+    fillUnitSelect(spdUnitSel, spdUnitFixed, boxMode() && spdWasBox);
+    meUnitSel.dataset.init = '1'; spdUnitSel.dataset.init = '1';
+    refreshHints();
+
+    var lastPlain = curBase;
+    pkgSel.addEventListener('change', function(){
+      baseOther.style.display = pkgSel.value === '__other__' ? '' : 'none';
+      // 箱に切り替えたら、ME室は個(中身)、SPDは箱を初期値にする
+      if(boxMode()){
+        if(Array.prototype.some.call(contSel.options, function(o){ return o.value === lastPlain; })) contSel.value = lastPlain;
+        meUnitSel.dataset.init = '0'; spdUnitSel.dataset.init = '0';
+        fillUnitSelect(meUnitSel, meUnitFixed, false);
+        fillUnitSelect(spdUnitSel, spdUnitFixed, true);
+        meUnitSel.dataset.init = '1'; spdUnitSel.dataset.init = '1';
+        refreshHints();
+      } else {
+        lastPlain = baseVal();
+        refreshUnits();
+      }
+    });
+    baseOther.addEventListener('input', refreshUnits);
+    contSel.addEventListener('change', refreshUnits);
+    perBoxInput.addEventListener('input', refreshHints);
+    [meUnitSel, spdUnitSel].forEach(function(el){ el.addEventListener('change', refreshHints); });
+    [stdInput, chkInput, spdSysInput].forEach(function(el){ el.addEventListener('input', refreshHints); });
     form.querySelectorAll('input[name="category"]').forEach(function(r){
       r.addEventListener('change', function(){
         var spdSel = form.category.value === 'spd';
-        normalQtyRow.style.display = spdSel ? 'none' : '';
-        spdQtyRow.style.display = spdSel ? '' : 'none';
-        spdCheckQtyRow.style.display = spdSel ? '' : 'none';
+        stdInput.style.display = spdSel ? 'none' : '';
+        chkInput.style.display = spdSel ? '' : 'none';
+        spdSection.style.display = spdSel ? '' : 'none';
+        refreshHints();
       });
     });
+
     form.addEventListener('submit', function(e){
       e.preventDefault();
       var fd = new FormData(form);
       var category = fd.get('category');
       var name = fd.get('name').trim();
       if(!name){ alert('物品名を入力してください。'); return; }
-      var standardQty = Number(fd.get('standardQty')) || 0;
-      var spdSystemQty = Number(fd.get('spdSystemQty')) || 0;
-      var spdCheckQty = Number(fd.get('spdCheckQty')) || 0;
+      var base = baseVal(), n = perBoxVal();
+      var meBox = isBox(meUnitSel), spdBox = isBox(spdUnitSel);
       var payload = {
         locationId: fd.get('locationId'),
         name: name,
         spec: fd.get('spec').trim(),
-        shelf: fd.get('shelf').trim(),
         code: fd.get('code').trim(),
-        unit: fd.get('unit').trim() || '個',
+        baseUnit: base,
+        perBox: n,
+        unit: meBox ? '箱' : base,
         category: category,
-        standardQty: category === 'normal' ? standardQty : 0,
-        spdSystemQty: category === 'spd' ? spdSystemQty : 0,
-        spdCheckQty: category === 'spd' ? spdCheckQty : 0,
+        standardQty: category === 'normal' ? (Number(fd.get('standardQty')) || 0) : 0,
+        spdSystemQty: category === 'spd' ? (Number(fd.get('spdSystemQty')) || 0) : 0,
+        spdCheckQty: category === 'spd' ? (Number(fd.get('spdCheckQty')) || 0) : 0,
+        spdUnit: category === 'spd' ? (spdBox ? '箱' : base) : '',
         note: fd.get('note').trim(),
         photo: pendingPhoto || ''
       };
@@ -1547,7 +1730,21 @@
     renderStaffList();
   });
 
+  function renderUrgentSetting(){
+    var sel = document.getElementById('urgentRatioSel');
+    var cur = state.settings ? state.settings.urgentRatio : 0.5;
+    var opts = [[0,'使わない(要確認のみ)'],[0.3,'0.3'],[0.4,'0.4'],[0.5,'0.5(標準)'],[0.6,'0.6'],[0.7,'0.7']];
+    sel.innerHTML = opts.map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === cur ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
+    sel.value = String(cur);
+  }
+  document.getElementById('urgentRatioSel').addEventListener('change', function(e){
+    state.settings = { urgentRatio: Number(e.target.value) || 0 };
+    saveState();
+    showToast('緊急判定の係数を変更しました');
+  });
+
   function renderMaster(){
+    renderUrgentSetting();
     renderLocationList();
     renderStaffMaster();
     renderItemTable();
@@ -1568,7 +1765,7 @@
         if(!item) return;
         var status = itemStatus(item, String(r.entries[id]));
         if(status.state === 'order') orderCount++;
-        if(status.state === 'check') checkCount++;
+        if(status.state === 'check' || status.state === 'urgent') checkCount++;
       });
       return '<div class="history-row" data-action="view-record" data-id="' + r.id + '">' +
         '<div><div class="history-row__date">' + escapeHtml(r.date) + '</div>' +
@@ -1589,7 +1786,7 @@
       var status = itemStatus(item, String(r.entries[id]));
       var cls = statusClass(status.state);
       var statusHtml = status.state !== 'empty' ? ('<span class="item-row__status ' + cls + '">' + status.label + '</span>') : '';
-      var displayVal = r.entries[id] === 'SUFFICIENT' ? '十分(目視)' : (r.entries[id] + escapeHtml(item.unit || ''));
+      var displayVal = r.entries[id] === 'SUFFICIENT' ? (item.category === 'spd' ? '箱あり' : '十分(目視)') : (r.entries[id] + escapeHtml(item.unit || ''));
       return '<div class="item-row ' + cls + '">' +
         '<div class="item-row__main"><div class="item-row__name">' + escapeHtml(item.name) + '</div>' +
         (item.spec ? '<div class="item-row__spec">' + escapeHtml(item.spec) + '</div>' : '') + '</div>' +
